@@ -1,0 +1,4 @@
+editor.hxml
+
+-main Main
+-java bin/ZenFlo.jar

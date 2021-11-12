@@ -1,0 +1,4 @@
+editor.hxml
+
+-main Main
+-cs bin/ZenFlo/bin/Main

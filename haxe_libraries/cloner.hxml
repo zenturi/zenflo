@@ -1,0 +1,3 @@
+# @install: lix --silent download "gh://github.com/thomasuster/cloner#8be049d46d16dbaedea5ed632659ddad4e133ba8" into cloner/1.0.0/github/8be049d46d16dbaedea5ed632659ddad4e133ba8
+-cp ${HAXE_LIBCACHE}/cloner/1.0.0/github/8be049d46d16dbaedea5ed632659ddad4e133ba8/src/
+-D cloner=1.0.0

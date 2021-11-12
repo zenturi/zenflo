@@ -1,0 +1,11 @@
+# @install: lix --silent download "haxelib:/sneaker#0.11.0" into sneaker/0.11.0/haxelib
+-lib prayer
+-lib sinker
+-cp ${HAXE_LIBCACHE}/sneaker/0.11.0/haxelib/src/
+-D sneaker=0.11.0
+# Default parameters for haxelib
+
+-lib sinker
+-lib prayer
+
+--macro sneaker.Initialization.run()

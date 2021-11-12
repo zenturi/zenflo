@@ -1,0 +1,8 @@
+-cp src/
+
+-L tink_core
+-L thx.core
+-L tink_macro
+-L cloner
+-L sneaker
+-L deep-equals

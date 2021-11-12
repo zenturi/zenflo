@@ -1,0 +1,4 @@
+editor.hxml
+
+-main Main
+-lua bin/ZenFlo.lua

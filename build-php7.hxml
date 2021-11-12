@@ -1,0 +1,4 @@
+editor.hxml
+
+-main Main
+-php7 bin/ZenFlo

@@ -1,0 +1,14 @@
+{
+  "name": "ZenFlo",
+  "url" : "https://github.com/YOUR_NAME/ZenFlo/",
+  "license": "MIT",
+  "tags": ["haxe","js","nodejs","python","swf","as3","lua","php7","neko","hl","php","java","cpp","cs"],
+  "description": "description of ZenFlo",
+  "classPath": "src",
+  "version": "0.0.1",
+  "releasenote": "Initial release",
+  "contributors": ["YOUR_NAME"],
+  "dependencies": {
+
+  }
+}

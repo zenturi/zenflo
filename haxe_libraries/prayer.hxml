@@ -1,0 +1,7 @@
+# @install: lix --silent download "haxelib:/prayer#0.1.3" into prayer/0.1.3/haxelib
+-lib sinker
+-cp ${HAXE_LIBCACHE}/prayer/0.1.3/haxelib/src/
+-D prayer=0.1.3
+# Default parameters for haxelib
+
+-lib sinker
