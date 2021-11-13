@@ -40,21 +40,21 @@ class Network extends BaseNetwork {
 		Remove a process from the network. The node will also be removed
 		from the current graph.
 	**/
-	override public function removeNode(node:GraphNode):Promise<Void> {
+	override public function removeNode(node:GraphNode):Promise<Any> {
 		return super.removeNode(node).next((_) -> {
 			this.graph.removeNode(node.id);
 			return null;
 		});
 	}
 
-	override public function renameNode(oldId:String, newId:String):Promise<Void> {
+	override public function renameNode(oldId:String, newId:String):Promise<Any> {
 		return super.renameNode(oldId, newId).next((_) -> {
 			this.graph.renameNode(oldId, newId);
 			return null;
 		});
 	}
 
-	override public function removeEdge(edge:GraphEdge):Promise<Void> {
+	override public function removeEdge(edge:GraphEdge):Promise<Any> {
 		return super.removeEdge(edge).next((_) -> {
 			this.graph.removeEdge(edge.from.node, edge.from.port, edge.to.node, edge.to.port);
 			return null;

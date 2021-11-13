@@ -9,8 +9,6 @@ import zenflo.graph.GraphNodeMetadata;
 import zenflo.lib.EventEmitter;
 import tink.core.Error;
 
-using deepequals.DeepEquals;
-
 function createGraph(name:String, options:GraphOptions):Graph {
 	return new Graph(name, options);
 }
@@ -109,18 +107,18 @@ function mergeResolveTheirs(base:Graph, to:Graph) {
 		}
 	})();
 
-	(()->{
-		for(group in to.groups){
+	(() -> {
+		for (group in to.groups) {
 			base.addGroup(group.name, group.nodes, group.metadata != null ? group.metadata : {});
 		}
 	})();
 }
 
-function equivalent(a: Graph, b: Graph): Bool {
+function equivalent(a:Graph, b:Graph):Bool {
 	// TODO: add option to only compare known fields
 	// TODO: add option to ignore metadata
-	return a.deepEquals(b);
-  }
+	return Reflect.compare(a, b) == 0;
+}
 
 /**
 	This class represents an abstract FBP graph containing nodes
@@ -164,7 +162,10 @@ class Graph extends EventEmitter {
 			depth: 0,
 		};
 
-		this.caseSensitive = options.caseSensitive || false;
+		this.caseSensitive = false;
+		if (options != null && options.caseSensitive != null) {
+			this.caseSensitive = options.caseSensitive;
+		}
 	}
 
 	public function getPortName(port:String = ''):String {
@@ -222,7 +223,7 @@ class Graph extends EventEmitter {
 	**/
 	public function setProperties(properties:PropertyMap) {
 		this.checkTransactionStart();
-		final before = new Cloner().clone(this.properties);
+		final before = this.properties.copy();
 		for (item in properties.keys()) {
 			final val = properties[item];
 			this.properties[item] = val;
@@ -235,7 +236,7 @@ class Graph extends EventEmitter {
 
 	public function addInport(publicPort:String, nodeKey:GraphNodeID, portKey:String, ?metadata:GraphNodeMetadata) {
 		// Check that node exists
-		if (this.getNode(nodeKey) != null) {
+		if (this.getNode(nodeKey) == null) {
 			return this;
 		}
 
@@ -285,6 +286,9 @@ class Graph extends EventEmitter {
 	}
 
 	public function addOutport(publicPort:String, nodeKey:GraphNodeID, portKey:String, ?metadata:GraphNodeMetadata):Graph {
+		if (metadata == null) {
+			metadata = {};
+		}
 		// Check that node exists
 		if (this.getNode(nodeKey) == null) {
 			return this;
@@ -390,10 +394,10 @@ class Graph extends EventEmitter {
 		(() -> {
 			for (group in this.groups) {
 				if (group == null) {
-					return;
+					continue;
 				}
 				if (group.name != oldName) {
-					return;
+					continue;
 				}
 				final g = group;
 				g.name = newName;
@@ -427,20 +431,20 @@ class Graph extends EventEmitter {
 		(() -> {
 			for (group in this.groups) {
 				if (group == null) {
-					return;
+					continue;
 				}
 				if (group.name != groupName) {
-					return;
+					continue;
 				}
-				final before = new Cloner().clone(group.metadata);
+				final before = group.metadata.copy();
 					(() -> {
-						for (item in metadata) {
+						final g = group;
+						if (g.metadata == null) {
+							return;
+						}
+						for (item in metadata.keys()) {
 							final val = metadata[item];
-
-							final g = group;
-							if (g.metadata == null) {
-								return;
-							}
+							
 							if (val != null) {
 								g.metadata[item] = val;
 							} else {
@@ -497,7 +501,7 @@ class Graph extends EventEmitter {
 	**/
 	public function removeNode(id:GraphNodeID):Graph {
 		final node = this.getNode(id);
-		if (node != null) {
+		if (node == null) {
 			return this;
 		}
 
@@ -540,11 +544,11 @@ class Graph extends EventEmitter {
 		(() -> {
 			for (group in this.groups) {
 				if (group == null) {
-					return;
+					return null;
 				}
 				final index = group.nodes.indexOf(id);
 				if (index == -1) {
-					return;
+					return null;
 				}
 				group.nodes.splice(index, 1);
 				if (group.nodes.length == 0) {
@@ -581,7 +585,7 @@ class Graph extends EventEmitter {
 			for (e in this.edges) {
 				final edge = e;
 				if (edge == null) {
-					return;
+					continue;
 				}
 				if (edge.from.node == oldId) {
 					edge.from.node = newId;
@@ -595,7 +599,7 @@ class Graph extends EventEmitter {
 		(() -> {
 			for (iip in this.initializers) {
 				if (iip == null) {
-					return;
+					continue;
 				}
 				if (iip.to.node == oldId) {
 					iip.to.node = newId;
@@ -623,11 +627,11 @@ class Graph extends EventEmitter {
 		(() -> {
 			for (group in this.groups) {
 				if (group == null) {
-					return;
+					continue;
 				}
 				final index = group.nodes.indexOf(oldId);
 				if (index == -1) {
-					return;
+					continue;
 				}
 				final g = group;
 				g.nodes[index] = newId;
@@ -697,7 +701,7 @@ class Graph extends EventEmitter {
 	/**
 		Adding an edge will emit the `addEdge` event.
 	**/
-	public function addEdgeIndex(outNode:GraphNodeID, outPort:String, outIndex:Null<Int>, inNode:GraphNodeID, inPort:String, inIndex:Null<Int>,
+	public function addEdgeIndex(outNode:GraphNodeID, outPort:String, outIndex:Null<Int>, inNode:GraphNodeID, inPort:String, ?inIndex:Null<Int>,
 			?metadata:GraphEdgeMetadata) {
 		if (metadata == null)
 			metadata = new GraphEdgeMetadata();
@@ -828,7 +832,7 @@ class Graph extends EventEmitter {
 		if (edge.metadata == null) {
 			edge.metadata = {};
 		}
-		final before = new Cloner().clone(edge.metadata);
+		final before = edge.metadata.copy();
 
 			(() -> {
 				for (item in metadata) {
@@ -1006,20 +1010,17 @@ class Graph extends EventEmitter {
 		if (node.metadata == null) {
 			node.metadata = {};
 		}
-		final before = new Cloner().clone(node.metadata);
-			(() -> {
-				for (item in metadata) {
-					if (node.metadata == null) {
-						return;
-					}
-					final val = metadata[item];
-					if (val != null) {
-						node.metadata[item] = val;
-					} else {
-						node.metadata.remove(item);
-					}
+		final before = node.metadata.copy();
+		(() -> {
+			for (item in metadata.keys()) {
+				final val = metadata[item];
+				if (val != null) {
+					node.metadata[item] = val;
+				} else {
+					node.metadata.remove(item);
 				}
-			})();
+			}
+		})();
 
 		this.emit('changeNode', node, before, metadata);
 		this.checkTransactionEnd();
@@ -1189,17 +1190,25 @@ class Graph extends EventEmitter {
 						port: edge.to.port,
 						index: edge.to.index,
 					},
+					data: null
 				};
+				if (connection.data == null)
+					Reflect.deleteField(connection, "data");
+				if (connection.src.index == null)
+					Reflect.deleteField(connection.src, "index");
+				if (connection.tgt.index == null)
+					Reflect.deleteField(connection.tgt, "index");
+
 				if (edge.metadata != null && edge.metadata.keys().length != 0) {
 					connection.metadata = edge.metadata.copy();
 				}
+
 				if (json.connections == null) {
 					json.connections = [];
 				}
 				json.connections.push(connection);
 			}
 		})();
-
 		(() -> {
 			for (initializer in this.initializers) {
 				final iip:GraphJsonEdge = {
@@ -1243,12 +1252,13 @@ class Graph extends EventEmitter {
 	public static function loadJSON(json:Dynamic, ?metadata:JournalMetadata):Promise<Graph> {
 		if (metadata == null)
 			metadata = {};
-		return new Promise<Graph>((resolve, _) -> {
+
+		return new Promise<Graph>((resolve, reject) -> {
 			var definition:GraphJson = {};
 			if (Std.isOfType(json, String)) {
 				definition = Json.parse(json);
 			} else {
-				definition = new Cloner().clone(json);
+				definition = json;
 			}
 
 			if (definition.properties == null) {
@@ -1264,21 +1274,22 @@ class Graph extends EventEmitter {
 			final graph = new Graph(definition.properties["name"], {
 				caseSensitive: definition.caseSensitive == null ? false : definition.caseSensitive,
 			});
+
 			graph.startTransaction('loadJSON', metadata);
 			final properties:PropertyMap = {};
-
 				(() -> {
 					for (property in definition.properties.keys()) {
 						if (property == 'name') {
-							return;
+							continue;
 						}
 						if (definition.properties == null) {
-							return;
+							continue;
 						}
 						final value:Any = definition.properties[property];
 						properties[property] = value;
 					}
 				})();
+
 			graph.setProperties(properties);
 
 			(() -> {
@@ -1295,7 +1306,8 @@ class Graph extends EventEmitter {
 			})();
 
 			(() -> {
-				for (conn in definition.connections) {
+				for (i in 0...definition.connections.length) {
+					final conn = definition.connections[i];
 					final meta = conn.metadata != null ? conn.metadata : {};
 					if (conn.data != null) {
 						if (conn.tgt.index != null) {
@@ -1303,15 +1315,16 @@ class Graph extends EventEmitter {
 						} else {
 							graph.addInitial(conn.data, conn.tgt.process, graph.getPortName(conn.tgt.port), meta);
 						}
-						return;
+						continue;
+					} 
+					if (conn.src == null) {
+						continue;
 					}
-					if (conn.src != null) {
-						return;
-					}
+
 					if (conn.src.index != null || conn.tgt.index != null) {
 						graph.addEdgeIndex(conn.src.process, graph.getPortName(conn.src.port), conn.src.index, conn.tgt.process,
 							graph.getPortName(conn.tgt.port), conn.tgt.index, meta);
-						return;
+						continue;
 					}
 					graph.addEdge(conn.src.process, graph.getPortName(conn.src.port), conn.tgt.process, graph.getPortName(conn.tgt.port), meta);
 				}
@@ -1319,10 +1332,10 @@ class Graph extends EventEmitter {
 
 			if (definition.inports != null) {
 				(() -> {
+					if (definition.inports == null) {
+						return;
+					}
 					for (pub in definition.inports.keys()) {
-						if (definition.inports == null || !definition.inports.exists(pub)) {
-							return;
-						}
 						final priv = definition.inports[pub];
 						graph.addInport(pub, priv.process, graph.getPortName(priv.port), priv.metadata != null ? priv.metadata : {});
 					}
@@ -1333,7 +1346,7 @@ class Graph extends EventEmitter {
 				(() -> {
 					for (pub in definition.outports.keys()) {
 						if (definition.outports == null || !definition.outports.exists(pub)) {
-							return;
+							continue;
 						}
 						final priv = definition.outports[pub];
 						graph.addOutport(pub, priv.process, graph.getPortName(priv.port), priv.metadata != null ? priv.metadata : {});

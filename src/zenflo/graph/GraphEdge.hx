@@ -9,5 +9,5 @@ typedef GraphEdge = {
 	to:{
 		node:GraphNodeID, port:String, ?index:Int
 	},
-	?metadata:Null<GraphEdgeMetadata>
+	?metadata:Null<GraphEdgeMetadata>,
 }

@@ -1,5 +1,5 @@
 package zenflo.graph;
 
 typedef GraphOptions = {
-    ?caseSensitive:Null<Bool>,
+    ?caseSensitive:Bool
 }

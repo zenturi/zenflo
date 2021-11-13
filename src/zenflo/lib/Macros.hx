@@ -10,6 +10,17 @@ import tink.macro.Types.*;
 
 	asComponent is a macro for turning Haxe functions into
 	ZenFlo components.
+
+	All input arguments become input ports, and the function's
+	result will be sent to either `out` or `error` port.
+
+	```
+		using zenflo.lib.Macros.*;
+
+		final random = asComponent(Math.random, {
+			description: 'Generate a random number'
+		});
+	```
 **/
 macro function asComponent(fun:haxe.Constraints.Function, options:ComponentOptions) {
 	var fExpr:Expr = toExpr(fun);

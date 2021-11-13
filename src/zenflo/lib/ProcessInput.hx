@@ -102,7 +102,7 @@ class ProcessInput extends sneaker.tag.Tagged {
 	public function has(...params:Dynamic):Bool {
 		var validate:HasValidationCallback = null;
 		var args = params.toArray().filter((p) -> !Reflect.isFunction(p));
-		if (args.length == null) {
+		if (args.length == 0) {
 			args = ['in'];
 		}
 		if (Reflect.isFunction(params[params.length - 1])) {
@@ -163,7 +163,7 @@ class ProcessInput extends sneaker.tag.Tagged {
 	public function hasStream(...params:Dynamic):Bool {
 		var validateStream:Function = null;
 		var args = params.toArray().filter((p) -> !Reflect.isFunction(p));
-		if (args.length == null) {
+		if (args.length == 0) {
 			args = ['in'];
 		}
 		if (Reflect.isFunction(args[args.length - 1])) {
@@ -240,7 +240,7 @@ class ProcessInput extends sneaker.tag.Tagged {
 
 		for (i in 0...args.length) {
 			final port:Dynamic = args[i];
-			var idx:Int = null;
+			var idx:Null<Int> = null;
 			var ip:IP = null;
 			var portname:String = "";
 

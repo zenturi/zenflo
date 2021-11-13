@@ -12,7 +12,7 @@ class Main {
 
 	public function new() {
 		final eventEmitter = new EventEmitter();
-		eventEmitter.on('start', (values) -> {
+		eventEmitter.once('start', (values) -> {
 			final start = values[0];
 			final end = values[1];
 			trace('started from $start to $end');

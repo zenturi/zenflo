@@ -1,0 +1,8 @@
+editor.hxml
+
+-m Main
+
+--hl bin/test.hl
+
+
+--cmd hl bin/test.hl

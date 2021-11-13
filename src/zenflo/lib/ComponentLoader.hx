@@ -336,7 +336,7 @@ class ComponentLoader {
 		a source code string. Supported languages and techniques
 		depend on the runtime environment.
 	**/
-	public function setSource(packageId:String, name:String, source:String, language:String, callback:ErrorableCallback):Promise<Void> {
+	public function setSource(packageId:String, name:String, source:String, language:String, callback:ErrorableCallback):Promise<Any> {
 		if (!this.ready) {
 			return this.listComponents().next((_) -> this.setSource(packageId, name, source, language, callback));
 		}

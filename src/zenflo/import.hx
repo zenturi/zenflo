@@ -1,6 +1,6 @@
 package zenflo;
 
-
+import tink.core.Promise;
 import zenflo.lib.EventEmitter;
 import zenflo.Zenflo.NetworkOptions;
 import zenflo.graph.Graph;

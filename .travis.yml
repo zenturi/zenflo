@@ -4,7 +4,7 @@ dist: trusty
 language: haxe
 
 haxe:
-  - "3.4.7"
+  - "4.2.4"
   - "development"
 
 matrix:
@@ -16,24 +16,24 @@ install:
 
 script:
   - npm lix use haxe $TRAVIS_HAXE_VERSION
-  - npm run haxe build-js.hxml
-  - npm run haxe build-nodejs.hxml
-  - npm run haxe build-python.hxml
-  - npm run haxe build-swf.hxml
-  - npm run haxe build-as3.hxml
-  - npm run haxe build-lua.hxml
-  - npm run haxe build-php7.hxml
-  - npm run haxe build-neko.hxml
-  - npm run haxe build-hl.hxml
-  - npm run haxe build-php.hxml
-  - npm run haxe build-java.hxml
-  - npm run haxe build-cpp.hxml
-  - npm run haxe build-cs.hxml
+  - npm run haxe test.hxml
+  # - npm run haxe build-nodejs.hxml
+  # - npm run haxe build-python.hxml
+  # - npm run haxe build-swf.hxml
+  # - npm run haxe build-as3.hxml
+  # - npm run haxe build-lua.hxml
+  # - npm run haxe build-php7.hxml
+  # - npm run haxe build-neko.hxml
+  # - npm run haxe build-hl.hxml
+  # - npm run haxe build-php.hxml
+  # - npm run haxe build-java.hxml
+  # - npm run haxe build-cpp.hxml
+  # - npm run haxe build-cs.hxml
 
 
-deploy:
-  - provider: script
-    haxe: 3.4.7
-    script: bash ./release_haxelib.sh $HAXELIB_PWD
-    on:
-      tags: true
+# deploy:
+#   - provider: script
+#     haxe: 4.2.4
+#     script: bash ./release_haxelib.sh $HAXELIB_PWD
+#     on:
+#       tags: true

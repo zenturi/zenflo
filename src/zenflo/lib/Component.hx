@@ -85,7 +85,7 @@ class Component extends EventEmitter {
 	public var outPorts:OutPorts;
 	public var network:Network;
 	public var load:Int;
-	public var __openConnections:Int;
+	public var __openConnections:Null<Int>;
 	public var nodeId:String;
 	public var bracketContext:BracketContext;
 
@@ -212,7 +212,7 @@ class Component extends EventEmitter {
 		The callback is called when tearDown finishes and
 		all active processing contexts have ended.
 	**/
-	public function shutdown():Promise<Void> {
+	public function shutdown():Promise<Any> {
 		return this.tearDown()
 			.next((_) -> {
 				// Clear contents of inport buffers
@@ -300,7 +300,7 @@ class Component extends EventEmitter {
 		method and sets the component to a started state.
 
 	**/
-	public function start():Promise<Void> {
+	public function start():Promise<Any> {
 		var promise = new Promise(null);
 		if (this.isStarted()) {
 			promise = Promise.resolve(null);
@@ -462,7 +462,7 @@ class Component extends EventEmitter {
 		if (Reflect.field(this.bracketContext[type], name) == null) {
 			Reflect.setField(this.bracketContext[type], name, {});
 		}
-		if (!Reflect.field(Reflect.field(this.bracketContext[type], name), scope) == null) {
+		if (Reflect.field(Reflect.field(this.bracketContext[type], name), scope) == null) {
 			Reflect.setField(Reflect.field(this.bracketContext[type], name), scope, []);
 		}
 		return Reflect.field(Reflect.field(this.bracketContext[type], name), scope);
@@ -638,7 +638,7 @@ class Component extends EventEmitter {
 			return;
 		}
 
-		if ((ip.type == OpenBracket) && (this.autoOrdering == null) && !this.ordered) {
+		if (ip.type == OpenBracket && this.autoOrdering && !this.ordered) {
 			// Switch component to ordered mode when receiving a stream unless
 			// auto-ordering is disabled
 			debugComponent('${this.nodeId} port \'${port.name}\' entered auto-ordering mode');
@@ -696,7 +696,13 @@ class Component extends EventEmitter {
 		}
 
 		// Prepare the input/output pair
-		final context = new ProcessContext(ip, this, port, result);
+
+		final context:ProcessContext = {
+			ip:ip, 
+			nodeInstance: this, 
+			port: port, 
+			result: result
+		}
 		final input = new ProcessInput(this.inPorts, context);
 		final output = new ProcessOutput(this.outPorts, context);
 		try {

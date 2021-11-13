@@ -400,8 +400,8 @@ class BaseNetwork extends EventEmitter {
 		return promise;
 	}
 
-	public function removeNode(node:GraphNode):Promise<Void> {
-		var promise:Promise<Void> = new Promise(null);
+	public function removeNode(node:GraphNode):Promise<Any> {
+		var promise:Promise<Any> = new Promise(null);
 
 		final process:NetworkProcess = this.getNode(node.id);
 		if (process == null) {
@@ -419,9 +419,9 @@ class BaseNetwork extends EventEmitter {
 		return promise;
 	}
 
-	public function renameNode(oldId:String, newId:String):Promise<Void> {
+	public function renameNode(oldId:String, newId:String):Promise<Any> {
 		final process:NetworkProcess = this.getNode(oldId);
-		var promise = new Promise<Void>(null);
+		var promise = new Promise<Any>(null);
 		if (process == null) {
 			promise = Promise.reject(new Error('Process ${oldId} not found'));
 		} else {
@@ -467,7 +467,7 @@ class BaseNetwork extends EventEmitter {
 	public function connect():Promise<BaseNetwork> {
 		var promise = new Promise<BaseNetwork>(null);
 		final handleAll = (key:Array<Any>, method:Function) -> {
-			return Lambda.fold(key, (entity:Any, next:Promise<Void>) -> {
+			return Lambda.fold(key, (entity:Any, next:Promise<Any>) -> {
 				next.next((_) -> method(entity, {initial: true}));
 			}, Promise.resolve(null));
 		}
@@ -502,7 +502,7 @@ class BaseNetwork extends EventEmitter {
 		});
 	}
 
-	public function removeEdge(edge:GraphEdge):Promise<Void> {
+	public function removeEdge(edge:GraphEdge):Promise<Any> {
 		for (index => connection in this.connections) {
 			if (connection == null) {
 				return Promise.resolve(null);
@@ -592,7 +592,7 @@ class BaseNetwork extends EventEmitter {
 		return Promise.resolve(null);
 	}
 
-	public function addDefaults(node:GraphNode, options:Dynamic):Promise<Void> {
+	public function addDefaults(node:GraphNode, options:Dynamic):Promise<Any> {
 		return this.ensureNode(node.id, 'inbound').next((process) -> Promise.inParallel(process.component.inPorts.ports.keys().map((key) -> {
 			// Attach a socket to any defaulted inPorts as long as they aren't already attached.
 			final port = process.component.inPorts.ports[key];
@@ -798,7 +798,7 @@ class BaseNetwork extends EventEmitter {
 		return new Promise((resolve:Dynamic, _) -> {
 			Timer.delay(resolve, 0);
 			return null;
-		}).next((_) -> Lambda.fold(this.initials, (initial, chain:Promise<Void>) -> {
+		}).next((_) -> Lambda.fold(this.initials, (initial, chain:Promise<Any>) -> {
 			return chain.next((_) -> {
 				initial.socket.post(new IP(DATA, initial.data, {
 					initial: true,
@@ -921,7 +921,7 @@ class BaseNetwork extends EventEmitter {
 		throw new haxe.exceptions.NotImplementedException();
 	}
 
-	public function startComponents():Promise<Void> {
+	public function startComponents():Promise<Any> {
 		if (this.processes == null || this.processes.keys().length == 0) {
 			return Promise.resolve(null);
 		}
@@ -937,7 +937,7 @@ class BaseNetwork extends EventEmitter {
 		});
 	}
 
-	public function sendDefaults():Promise<Void> {
+	public function sendDefaults():Promise<Any> {
 		return Promise.inParallel(this.defaults.map((socket) -> {
 			// Don't send defaults if more than one socket is present on the port.
 			// This case should only happen when a subgraph is created as a component
