@@ -7,6 +7,7 @@
 -L tink_macro
 -L cloner
 -L sneaker
--L deep-equals
+
+-L equals
 
 -L buddy

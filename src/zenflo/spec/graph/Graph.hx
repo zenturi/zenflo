@@ -352,9 +352,9 @@ class Graph extends buddy.SingleSuite {
 						props.foo.should.be("Baz");
 						props.bar.should.be("Foo");
 					});
-					// it('should produce same JSON when serialized', {
-					// 	Reflect.compare(g.toJSON(), json).should.be(0);
-					// });
+					it('should produce same JSON when serialized', {
+						equals.Equal.equals(g.toJSON(), json).should.be(true);
+					});
 					it('should allow modifying graph metadata', (done) -> {
 						g.once('changeProperties', (vals) -> {
 							final properties:zenflo.graph.PropertyMap = vals[0];
@@ -588,6 +588,313 @@ class Graph extends buddy.SingleSuite {
 							g.renameOutport('outPut', 'foo');
 						});
 					});
+					describe('removing a node', {
+						it('should emit an event', (done) -> {
+							g.once('removeNode', (nodes) -> {
+								final node:Dynamic = nodes[0];
+								node.id.should.be('Baz');
+								done();
+							});
+							g.removeNode('Baz');
+						});
+						it('shouldn\'t have edges left behind', {
+							var connections = 0;
+							for (edge in g.edges) {
+								if (edge.from.node == 'Baz') {
+									connections += 1;
+								}
+								if (edge.to.node == 'Baz') {
+									connections += 1;
+								}
+							}
+							connections.should.be(0);
+						});
+						it('shouldn\'t have IIPs left behind', {
+							var connections = 0;
+							for (edge in g.initializers) {
+								if (edge.to.node == 'Baz') {
+									connections += 1;
+								}
+							}
+							connections.should.be(0);
+						});
+						it('shouldn\'t be grouped', {
+							var groups = 0;
+							for (group in g.groups) {
+								if (group.nodes.indexOf('Baz') != -1) {
+									groups += 1;
+								}
+							}
+							groups.should.be(0);
+						});
+						it('shouldn\'t affect other groups', {
+							final otherGroup = g.groups[0];
+							otherGroup.nodes.length.should.be(2);
+						});
+					});
+				});
+
+				describe('with multiple connected ArrayPorts', {
+					final g = new zenflo.graph.Graph();
+					g.addNode('Split1', 'Split');
+					g.addNode('Split2', 'Split');
+					g.addNode('Merge1', 'Merge');
+					g.addNode('Merge2', 'Merge');
+					g.addEdge('Split1', 'out', 'Merge1', 'in');
+					g.addEdge('Split1', 'out', 'Merge2', 'in');
+					g.addEdge('Split2', 'out', 'Merge1', 'in');
+					g.addEdge('Split2', 'out', 'Merge2', 'in');
+
+					it('should contain four nodes', {
+						g.nodes.length.should.be(4);
+					});
+					it('should contain four edges', {
+						g.edges.length.should.be(4);
+					});
+					it('should allow a specific edge to be removed', {
+						g.removeEdge('Split1', 'out', 'Merge2', 'in');
+						g.edges.length.should.be(3);
+					});
+					it('shouldn\'t contain the removed connection from Split1', {
+						var connection = null;
+						for (edge in g.edges) {
+							if ((edge.from.node == 'Split1') && (edge.to.node == 'Merge2')) {
+								connection = edge;
+							}
+						}
+						connection.should.be(null);
+					});
+					it('should still contain the other connection from Split1', {
+						var connection = null;
+						for (edge in g.edges) {
+							if ((edge.from.node == 'Split1') && (edge.to.node == 'Merge1')) {
+								connection = edge;
+							}
+						}
+						Reflect.isObject(connection).should.be(true);
+					});
+				});
+				describe('with an Initial Information Packet', {
+					final g = new zenflo.graph.Graph();
+					g.addNode('Split', 'Split');
+					g.addInitial('Foo', 'Split', 'in');
+
+					it('should contain one node', {
+						g.nodes.length.should.be(1);
+					});
+					it('should contain no edges', {
+						g.edges.length.should.be(0);
+					});
+					it('should contain one IIP', {
+						g.initializers.length.should.be(1);
+					});
+
+					describe('on removing that IIP', {
+						it('should emit a removeInitial event', (done) -> {
+							g.once('removeInitial', (iips) -> {
+								final iip:zenflo.graph.GraphIIP = iips[0];
+								iip.from.data.should.be('Foo');
+								iip.to.node.should.be('Split');
+								iip.to.port.should.be('in');
+								done();
+							});
+							g.removeInitial('Split', 'in');
+						});
+						it('should contain no IIPs', {
+							// Race condition??
+							haxe.Timer.delay(() -> {
+								g.initializers.length.should.be(0);
+							}, 0);
+						});
+					});
+				});
+				describe('with an Inport Initial Information Packet', {
+					final g = new zenflo.graph.Graph();
+					g.addNode('Split', 'Split');
+					g.addInport('testinport', 'Split', 'in');
+					g.addGraphInitial('Foo', 'testinport');
+
+					it('should contain one node', () -> g.nodes.length.should.be(1));
+					it('should contain no edges', () -> g.edges.length.should.be(0));
+					it('should contain one IIP for the correct node', () -> {
+						g.initializers.length.should.be(1);
+						g.initializers[0].from.data.should.be('Foo');
+						g.initializers[0].to.node.should.be('Split');
+						g.initializers[0].to.port.should.be('in');
+					});
+					describe('on removing that IIP', {
+						it('should emit a removeInitial event', (done) -> {
+							g.once('removeInitial', (vals) -> {
+								final iip:zenflo.graph.GraphIIP = vals[0];
+								iip.from.data.should.be('Foo');
+								iip.to.node.should.be('Split');
+								iip.to.port.should.be('in');
+
+								done();
+							});
+							g.removeGraphInitial('testinport');
+						});
+						it('should contain no IIPs', {
+							// Race condition??
+							haxe.Timer.delay(() -> {
+								g.initializers.length.should.be(0);
+							}, 0);
+						});
+					});
+					// Race condition??
+					haxe.Timer.delay(() -> {
+						describe('on adding IIP for a non-existent inport', {
+							g.addGraphInitial('Bar', 'nonexistent');
+							it('should not add any IIP', () -> g.initializers.length.should.be(0));
+						});
+					}, 0);
+				});
+				describe('with no nodes', {
+					final g = new zenflo.graph.Graph();
+					it('should not allow adding edges', {
+						g.addEdge('Foo', 'out', 'Bar', 'in');
+						g.edges.length.should.be(0);
+					});
+					it('should not allow adding IIPs', {
+						g.addInitial('Hello', 'Bar', 'in');
+						g.initializers.length.should.be(0);
+					});
+				});
+			});
+			describe('saving and loading files', {
+				describe('with .json suffix', {
+					var originalGraph = null;
+					var graphPath = null;
+					beforeEach({
+						#if sys
+						graphPath = haxe.io.Path.join([Sys.getCwd(), "foo.json"]);
+						#end
+					});
+
+					it('should be possible to save a graph to a file', (done) -> {
+						final g = new zenflo.graph.Graph();
+						g.addNode('Foo', 'Bar');
+						originalGraph = g.toJSON();
+						g.save(graphPath).handle((s) -> {
+							switch s {
+								case Success(i): {
+										done();
+									}
+								case Failure(e): {
+										fail(e);
+									}
+							}
+						});
+					});
+
+					it('should be possible to load a graph from a file', {
+						zenflo.graph.Graph.loadFile(graphPath).handle((c) -> {
+							switch c {
+								case Success(g): {
+										g.should.not.be(null);
+										g.should.beType(zenflo.graph.Graph);
+										equals.Equal.equals(g.toJSON(), originalGraph).should.be(true);
+									}
+								case _:
+							}
+						});
+					});
+
+					afterAll({
+						#if sys
+						sys.FileSystem.deleteFile(graphPath);
+						#end
+					});
+				});
+
+				describe('without .json suffix', {
+					var graphPathLegacy = null;
+					var graphPathLegacySuffix = null;
+					var originalGraph = null;
+
+					beforeEach({
+						#if sys
+						graphPathLegacySuffix = haxe.io.Path.join([Sys.getCwd(), "bar.json"]);
+						graphPathLegacy = haxe.io.Path.join([Sys.getCwd(), "bar"]);
+						#end
+					});
+
+					it('should be possible to save a graph to a file', (done) -> {
+						final g = new zenflo.graph.Graph();
+						g.addNode('Foo', 'Bar');
+						originalGraph = g.toJSON();
+						g.save(graphPathLegacy).handle((s) -> {
+							switch s {
+								case Success(i): {
+										done();
+									}
+								case Failure(e): {
+										fail(e);
+									}
+							}
+						});
+					});
+
+					it('should be possible to load a graph from a file', (done) -> {
+						zenflo.graph.Graph.loadFile(graphPathLegacySuffix).handle((c) -> {
+							var graph = null;
+							switch c {
+								case Success(g): {
+										if (g == null) {
+											fail(new tink.core.Error('No graph'));
+											return;
+										}
+										graph = g;
+									}
+								case Failure(e): {
+										fail(e);
+										return;
+									}
+							}
+
+							equals.Equal.equals(graph.toJSON(), originalGraph).should.be(true);
+							done();
+						});
+					});
+
+					afterAll({
+						#if sys
+						sys.FileSystem.deleteFile(graphPathLegacySuffix);
+						#end
+					});
+				});
+			});
+		});
+
+		describe('without case sensitivity', {
+			describe('Graph operations should convert port names to lowercase', {
+				var g:zenflo.graph.Graph = null;
+				beforeEach({
+					g = new zenflo.graph.Graph('Hola');
+				});
+				it('should have case sensitive property set to false', {
+					g.caseSensitive.should.be(false);
+				});
+				it('should have case insensitive ports on edges', (done) -> {
+					g.addNode('Foo', 'foo');
+					g.addNode('Bar', 'bar');
+					g.once('addEdge', (edges) -> {
+						final edge:zenflo.graph.GraphEdge = edges[0];
+						edge.from.node.should.be('Foo');
+						edge.to.port.should.be('input');
+						edge.from.port.should.be('output');
+
+						g.once('removeEdge', (_)->{
+							haxe.Timer.delay(()->{
+								equals.Equal.equals(g.edges, []).should.be(true);
+								done();
+							}, 0);
+						});
+
+						g.removeEdge('Foo', 'outPut', 'Bar', 'inPut');
+					});
+
+					g.addEdge('Foo', 'outPut', 'Bar', 'inPut');
 				});
 			});
 		});

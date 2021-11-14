@@ -1,5 +1,6 @@
 package zenflo.graph;
 
+import haxe.io.Path;
 import sys.io.File;
 import tink.core.Promise;
 import haxe.Json;
@@ -544,11 +545,11 @@ class Graph extends EventEmitter {
 		(() -> {
 			for (group in this.groups) {
 				if (group == null) {
-					return null;
+					continue;
 				}
 				final index = group.nodes.indexOf(id);
 				if (index == -1) {
-					return null;
+					continue;
 				}
 				group.nodes.splice(index, 1);
 				if (group.nodes.length == 0) {
@@ -975,12 +976,12 @@ class Graph extends EventEmitter {
 
 		this.initializers = this.initializers.filter((iip) -> {
 			if (iip.to.node == node && iip.to.port == portName) {
-				this.emit('removeInitial', iip);
-				return false;
+			  this.emit('removeInitial', iip);
+			  return false;
 			}
 			return true;
-		});
-
+		  });
+		
 		this.checkTransactionEnd();
 		return this;
 	}
@@ -1055,13 +1056,13 @@ class Graph extends EventEmitter {
 		if (this.inports[portName].metadata == null) {
 			this.inports[portName].metadata = new GraphNodeMetadata();
 		}
-		final before = new Cloner().clone(this.inports[portName].metadata);
+		final before = this.inports[portName].metadata.copy();
 			(() -> {
 				for (item in metadata.keys()) {
 					final val = metadata[item];
 					final existingMeta = this.inports[portName].metadata;
 					if (existingMeta == null) {
-						return;
+						continue;
 					}
 					if (val != null) {
 						existingMeta[item] = val;
@@ -1168,9 +1169,13 @@ class Graph extends EventEmitter {
 				if (json.processes == null) {
 					json.processes = {};
 				}
-				json.processes[node.id] = {
-					component: node.component
-				};
+				json.processes.set(node.id, {
+					component: node.component,
+					metadata: {}
+				});
+				// json.processes[node.id] = {
+				// 	component: node.component
+				// };
 				if (node.metadata != null) {
 					json.processes[node.id].metadata = node.metadata.copy();
 				}
@@ -1192,12 +1197,6 @@ class Graph extends EventEmitter {
 					},
 					data: null
 				};
-				if (connection.data == null)
-					Reflect.deleteField(connection, "data");
-				if (connection.src.index == null)
-					Reflect.deleteField(connection.src, "index");
-				if (connection.tgt.index == null)
-					Reflect.deleteField(connection.tgt, "index");
 
 				if (edge.metadata != null && edge.metadata.keys().length != 0) {
 					connection.metadata = edge.metadata.copy();
@@ -1235,9 +1234,10 @@ class Graph extends EventEmitter {
 	public function save(file:String):Promise<String> {
 		return new Promise<String>((resolve, reject) -> {
 			final json = Json.stringify(this.toJSON(), null, '\t');
+			final path = Path.withoutExtension(file);
 			try {
 				#if sys
-				File.saveContent('${file}.json', json);
+				File.saveContent('${path}.json', json);
 				#else
 				throw new Error("File saving not yet supported on this platform");
 				#end
@@ -1369,7 +1369,15 @@ class Graph extends EventEmitter {
 		});
 	}
 
-	public static function loadFile(graphName:String):Promise<Graph> {
-		throw new haxe.exceptions.NotImplementedException();
+	public static function loadFile(graphFilePath:String):Promise<Graph> {
+		var input = File.read(graphFilePath, false);
+		var buf = input.readAll();
+		var ext = Path.extension(graphFilePath);
+		if(ext == "json"){
+			return loadJSON(buf.toString());
+		} else if(ext == ".fbp"){
+			throw "Not yet implemented for .fbp";
+		}
+		throw "Unsupported file";
 	}
 }
