@@ -1,11 +1,13 @@
 package zenflo.spec.graph;
 
+import buddy.BuddySuite;
 import haxe.DynamicAccess;
 import zenflo.graph.GraphJson;
 
 using buddy.Should;
 
-class Graph extends buddy.SingleSuite {
+@colorize
+class Graph extends buddy.BuddySuite {
 	public function new() {
 		describe("FBP Graph", {
 			describe('with case sensitivity', {

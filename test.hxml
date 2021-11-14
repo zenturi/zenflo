@@ -1,9 +1,9 @@
 editor.hxml
 
 
--m zenflo.spec.graph.Graph
+-m zenflo.spec.Test
 
-
+-D buddy-colors
 --hl bin/test.hl
 
 

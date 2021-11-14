@@ -1,9 +1,8 @@
 package zenflo.spec;
 
+import buddy.Buddy;
 
-
-class Test {
-    static function main() {
-        zenflo.spec.graph.Graph.main();
-    }
-}
+class Test implements Buddy<[
+    zenflo.spec.graph.Graph,
+    zenflo.spec.graph.Journal
+]> {}

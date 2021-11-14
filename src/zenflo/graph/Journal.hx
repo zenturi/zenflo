@@ -264,7 +264,7 @@ class Journal extends EventEmitter {
 
 		final entry:TransactionEntry = {
 			cmd: cmd,
-			args: (new Cloner()).clone(args),
+			args: args,
 			rev: rev,
 		};
 		this.entries.push(entry);

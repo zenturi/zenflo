@@ -10,6 +10,8 @@ import zenflo.graph.GraphNodeMetadata;
 import zenflo.lib.EventEmitter;
 import tink.core.Error;
 
+using equals.Equal;
+
 function createGraph(name:String, options:GraphOptions):Graph {
 	return new Graph(name, options);
 }
@@ -118,7 +120,7 @@ function mergeResolveTheirs(base:Graph, to:Graph) {
 function equivalent(a:Graph, b:Graph):Bool {
 	// TODO: add option to only compare known fields
 	// TODO: add option to ignore metadata
-	return Reflect.compare(a, b) == 0;
+	return a.toJSON().equals(b.toJSON());
 }
 
 /**
@@ -126,7 +128,7 @@ function equivalent(a:Graph, b:Graph):Bool {
 	connected to each other with edges.
 
 	These graphs can be used for visualization and sketching, but
-	also are the way to start a NoFlo or other FBP network.
+	also are the way to start a ZenFlo or other FBP network.
 **/
 class Graph extends EventEmitter {
 	public var name:String;
@@ -347,17 +349,17 @@ class Graph extends EventEmitter {
 		}
 
 		this.checkTransactionStart();
-		final before = new Cloner().clone(this.outports[portName].metadata);
+		final before = this.outports[portName].metadata.copy();
 		if (this.outports[portName].metadata == null) {
 			this.outports[portName].metadata = new GraphNodeMetadata();
 		}
 
 		(() -> {
-			for (item in metadata) {
+			for (item in metadata.keys()) {
 				final val = metadata[item];
 				final existingMeta = this.outports[portName].metadata;
 				if (existingMeta == null) {
-					return;
+					continue;
 				}
 				if (val != null) {
 					existingMeta[item] = val;
