@@ -1,0 +1,10 @@
+editor.hxml
+
+
+-m zenflo.spec.Test
+-D HXCPP_M64
+-D buddy-colors
+--cpp bin/test
+
+
+--cmd bin/test/Test

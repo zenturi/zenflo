@@ -1,0 +1,20 @@
+editor.hxml
+
+# --each
+-D buddy-colors
+
+# --next
+-m zenflo.spec.Test
+--python bin/test.py
+
+# --next
+# -m zenflo.spec.Test
+# --hl bin/test.hl
+
+# --next
+# --cmd hl bin/test.hl
+
+# --next
+--cmd python3 bin/test.py
+
+# --interp
