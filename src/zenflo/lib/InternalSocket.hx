@@ -97,16 +97,16 @@ class InternalSocket extends EventEmitter {
 		} catch (error:SocketError) {
 			if (error.id != null && error.metadata != null && error.error != null) {
 				// Wrapped debuggable error coming from downstream, no need to wrap
-				if (this.listeners('error').length == 0) {
-					throw error.error;
-				}
+				// if (this.listeners('error').length == 0) {
+				// 	throw error.error;
+				// }
 				this.emit('error', error);
 				return;
 			}
 
-			if (this.listeners('error').length == 0) {
-				throw error;
-			}
+			// if (this.listeners('error').length == 0) {
+			// 	throw error;
+			// }
 
 			this.emit('error', {
 				id: this.to != null ? this.to.process.id : null,

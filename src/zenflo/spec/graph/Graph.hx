@@ -1,5 +1,7 @@
 package zenflo.spec.graph;
 
+import haxe.Timer;
+import equals.Equal;
 import buddy.BuddySuite;
 import haxe.DynamicAccess;
 import zenflo.graph.GraphJson;
@@ -702,10 +704,11 @@ class Graph extends buddy.BuddySuite {
 							});
 							g.removeInitial('Split', 'in');
 						});
-						it('should contain no IIPs', {
+						it('should contain no IIPs', (done)-> {
 							// Race condition??
-							haxe.Timer.delay(() -> {
+							Timer.delay(()->{
 								g.initializers.length.should.be(0);
+								done();
 							}, 0);
 						});
 					});
@@ -736,21 +739,63 @@ class Graph extends buddy.BuddySuite {
 							});
 							g.removeGraphInitial('testinport');
 						});
-						it('should contain no IIPs', {
-							// Race condition??
-							haxe.Timer.delay(() -> {
+						it('should contain no IIPs',(done)-> {
+							Timer.delay(()->{
 								g.initializers.length.should.be(0);
+								done();
 							}, 0);
 						});
 					});
-					// Race condition??
-					haxe.Timer.delay(() -> {
-						describe('on adding IIP for a non-existent inport', {
-							g.addGraphInitial('Bar', 'nonexistent');
-							it('should not add any IIP', () -> g.initializers.length.should.be(0));
-						});
-					}, 0);
+			
+					describe('on adding IIP for a non-existent inport', {
+						g.addGraphInitial('Bar', 'nonexistent');
+						it('should not add any IIP', () -> g.initializers.length.should.be(0));
+					});
 				});
+
+				describe('with an indexed Inport Initial Information Packet',  {
+					final g = new zenflo.graph.Graph();
+					g.addNode('Split', 'Split');
+					g.addInport('testinport', 'Split', 'in');
+					g.addGraphInitialIndex('Foo', 'testinport', 1);
+					it('should contain one node',  {
+						g.nodes.length.should.be(1);
+					});
+					it('should contain no edges',  {
+						Equal.equals(g.edges, []).should.be(true);
+					});
+					it('should contain one IIP for the correct node',  {
+						g.initializers.length.should.be(1);
+						g.initializers[0].from.data.should.be('Foo');
+						g.initializers[0].to.node.should.be('Split');
+						g.initializers[0].to.port.should.be('in');
+						g.initializers[0].to.index.should.be(1);
+					});
+					describe('on removing that IIP',  {
+					  it('should emit a removeInitial event', (done) -> {
+						g.once('removeInitial', (iips) -> {
+							final iip:Dynamic = iips[0];
+							iip.from.data.should.be('Foo');
+							iip.to.node.should.be('Split');
+							iip.to.port.should.be('in');
+						  
+						 	done();
+						});
+						g.removeGraphInitial('testinport');
+					  });
+					  it('should contain no IIPs', (done)-> {
+						Timer.delay(()->{
+							g.initializers.length.should.be(0);
+							done();
+						}, 0);
+					  });
+					});
+					describe('on adding IIP for a non-existent inport',  {
+					  g.addGraphInitialIndex('Bar', 'nonexistent', 1);
+					  it('should not add any IIP', () -> g.initializers.length.should.be(0));
+					});
+				  });
+
 				describe('with no nodes', {
 					final g = new zenflo.graph.Graph();
 					it('should not allow adding edges', {
@@ -763,14 +808,13 @@ class Graph extends buddy.BuddySuite {
 					});
 				});
 			});
+			#if sys
 			describe('saving and loading files', {
 				describe('with .json suffix', {
 					var originalGraph = null;
 					var graphPath = null;
 					beforeEach({
-						#if sys
 						graphPath = haxe.io.Path.join([Sys.getCwd(), "foo.json"]);
-						#end
 					});
 
 					it('should be possible to save a graph to a file', (done) -> {
@@ -803,9 +847,7 @@ class Graph extends buddy.BuddySuite {
 					});
 
 					afterAll({
-						#if sys
 						sys.FileSystem.deleteFile(graphPath);
-						#end
 					});
 				});
 
@@ -815,10 +857,8 @@ class Graph extends buddy.BuddySuite {
 					var originalGraph = null;
 
 					beforeEach({
-						#if sys
 						graphPathLegacySuffix = haxe.io.Path.join([Sys.getCwd(), "bar.json"]);
 						graphPathLegacy = haxe.io.Path.join([Sys.getCwd(), "bar"]);
-						#end
 					});
 
 					it('should be possible to save a graph to a file', (done) -> {
@@ -860,12 +900,11 @@ class Graph extends buddy.BuddySuite {
 					});
 
 					afterAll({
-						#if sys
 						sys.FileSystem.deleteFile(graphPathLegacySuffix);
-						#end
 					});
 				});
 			});
+			#end
 		});
 
 		describe('without case sensitivity', {
@@ -889,8 +928,8 @@ class Graph extends buddy.BuddySuite {
 						g.once('removeEdge', (_)->{
 							haxe.Timer.delay(()->{
 								equals.Equal.equals(g.edges, []).should.be(true);
-								done();
 							}, 0);
+							done();
 						});
 
 						g.removeEdge('Foo', 'outPut', 'Bar', 'inPut');

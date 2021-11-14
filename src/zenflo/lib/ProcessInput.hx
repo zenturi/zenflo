@@ -9,9 +9,9 @@ import tink.core.Error;
 import haxe.ds.Either;
 import sneaker.log.Logger.*;
 
-class ProcessInput extends sneaker.tag.Tagged {
+class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 	public function new(ports:InPorts, context:ProcessContext) {
-		super();
+		#if !cpp super(); #end
 		this.ports = ports;
 		this.context = context;
 		this.nodeInstance = this.context.nodeInstance;
@@ -20,7 +20,7 @@ class ProcessInput extends sneaker.tag.Tagged {
 		this.result = this.context.result;
 		this.scope = this.context.scope;
 
-		this.newTag("zenflo:component");
+		#if !cpp  this.newTag("zenflo:component"); #end
 	}
 
 	public var ip:IP;
@@ -40,6 +40,12 @@ class ProcessInput extends sneaker.tag.Tagged {
 	public var context(default, null):ProcessContext;
 
 	var ports:InPorts;
+
+	#if cpp
+	function debug(msg:String){
+		Sys.println('[zenflo:component] => $msg');
+	}
+	#end
 
 	/**
 		When preconditions are met, set component state to `activated`

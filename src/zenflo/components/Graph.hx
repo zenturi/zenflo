@@ -253,6 +253,8 @@ class Graph extends Component {
 						}
 					});
 				});
+
+                return null;
 			});
 		}
 		if (this.network == null) {

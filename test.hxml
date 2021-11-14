@@ -1,10 +1,20 @@
 editor.hxml
 
-
--m zenflo.spec.Test
-
+# --each
 -D buddy-colors
+
+# --next
+-m zenflo.spec.Test
 --neko bin/test.n
 
+# --next
+# -m zenflo.spec.Test
+# --hl bin/test.hl
 
+# --next
+# --cmd hl bin/test.hl
+
+# --next
 --cmd npx neko bin/test.n
+
+# --interp

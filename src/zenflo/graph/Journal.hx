@@ -1,7 +1,9 @@
 package zenflo.graph;
 
+#if sys
 import sys.io.File;
 import sys.FileSystem;
+#end
 import haxe.Json;
 import tink.core.Promise;
 import cloner.Cloner;
@@ -111,49 +113,49 @@ class Journal extends EventEmitter {
 			this.currentRevision = -1;
 
 			this.startTransaction('initial', metadata != null ? metadata : {});
+            Lambda.foreach(this.graph.nodes, (node)->{
+                this.appendCommand('addNode', node);
+                return true;
+            });
 
-			(() -> {
-				for (node in this.graph.nodes) {
-					this.appendCommand('addNode', node);
-				}
-			})();
+            Lambda.foreach(this.graph.edges, (edge)->{
+                this.appendCommand('addEdge', edge);
+                return true;
+            });
+			
+			Lambda.foreach(this.graph.initializers, (iip)->{
+                this.appendCommand('addInitial', iip);
+                return true;
+            });
 
-			(() -> {
-				for (edge in this.graph.edges) {
-					this.appendCommand('addEdge', edge);
-				}
-			})();
-
-			(() -> {
-				for (iip in this.graph.initializers) {
-					this.appendCommand('addInitial', iip);
-				}
-			})();
 
 			if (this.graph.properties.keys().length > 0) {
 				this.appendCommand('changeProperties', this.graph.properties);
 			}
-			(() -> {
-				for (name => port in this.graph.inports) {
-					this.appendCommand('addInport', {
-						name: name,
-						port: port
-					});
-				}
-			})();
-			(() -> {
-				for (name => port in this.graph.outports) {
-					this.appendCommand('addOutport', {
-						name: name,
-						port: port
-					});
-				}
-			})();
-			(() -> {
-				for (group in this.graph.groups) {
-					this.appendCommand('addGroup', group);
-				}
-			})();
+
+            Lambda.foreach(this.graph.inports.keys(), (name)->{
+                final port = this.graph.inports[name];
+                this.appendCommand('addInport', {
+                    name: name,
+                    port: port
+                });
+                return true;
+            });
+
+            Lambda.foreach(this.graph.outports.keys(), (name)->{
+                final port = this.graph.outports[name];
+                this.appendCommand('addOutport', {
+                    name: name,
+                    port: port
+                });
+                return true;
+            });
+			
+            Lambda.foreach(this.graph.groups, (group)->{
+                this.appendCommand('addGroup', group);
+                return true;
+            });
+
 			this.endTransaction('initial', metadata != null ? metadata : {});
 		} else {
 			// Persistent store, start with its latest rev
@@ -219,7 +221,9 @@ class Journal extends EventEmitter {
 			});
 		});
 		this.graph.on('removeGroup', (group) -> this.appendCommand('removeGroup', group[0]));
-		this.graph.on('changeGroup', (vals:Rest<Dynamic>) -> this.appendCommand('changeGroup', {name: vals[0].name, "new": vals[0].metadata, old: vals[1]}));
+		this.graph.on('changeGroup', (vals:Rest<Dynamic>)->{
+            this.appendCommand('changeGroup', {name: vals[0].name, "new": vals[0].metadata, old: vals[1]});
+        });
 
 		this.graph.on('addExport', (exported) -> this.appendCommand('addExport', exported[0]));
 		this.graph.on('removeExport', (exported) -> this.appendCommand('removeExport', exported[0]));
@@ -262,9 +266,10 @@ class Journal extends EventEmitter {
 			return;
 		}
 
+        final a:DynamicAccess<Any> = args;
 		final entry:TransactionEntry = {
 			cmd: cmd,
-			args: args,
+			args: a.copy(),
 			rev: rev,
 		};
 		this.entries.push(entry);
@@ -352,6 +357,7 @@ class Journal extends EventEmitter {
 				}
 			case 'changeGroup':
 				{
+                    // trace(haxe.Json.stringify(cast(this.store, MemoryJournalStore).transactions));
 					this.graph.setGroupMetadata(a.name, calculateMeta(a.old, _new));
 				}
 			case 'addInport':
@@ -502,7 +508,6 @@ class Journal extends EventEmitter {
 		}
 
 		this.subscribed = false;
-
 		if (revId > this.currentRevision) {
 			// Forward replay journal to revId
 			var start = this.currentRevision + 1;
@@ -510,10 +515,10 @@ class Journal extends EventEmitter {
 			var end = revId;
 			var asc = start <= end;
 			while (asc ? r <= end : r >= end) {
-				for (entry in this.store.fetchTransaction(r)) {
-					this.executeEntry(entry);
-				}
-
+                Lambda.foreach(this.store.fetchTransaction(r), (entry)->{
+                    this.executeEntry(entry);
+                    return true;
+                });
 				if (asc)
 					r += 1;
 				else
@@ -523,14 +528,14 @@ class Journal extends EventEmitter {
 			// Move backwards, and apply inverse changes
 			var r = this.currentRevision;
 			var end = revId + 1;
-
-			while (r >= end) {
+			while(r >= end) {
 				// Apply entries in reverse order
 				final entries = this.store.fetchTransaction(r).slice(0);
 				entries.reverse();
-				for (entry in entries) {
-					this.executeEntryInversed(entry);
-				}
+                Lambda.foreach(entries, (entry)->{
+                    this.executeEntryInversed(entry);
+                    return true;
+                });
 				r -= 1;
 			}
 		}
@@ -575,11 +580,11 @@ class Journal extends EventEmitter {
 		return this.currentRevision < this.store.lastRevision;
 	}
 
-    /**
-        # Serializing
+	/**
+		# Serializing
 
-        Render a pretty printed string of the journal. Changes are abbreviated
-    **/
+		Render a pretty printed string of the journal. Changes are abbreviated
+	**/
 	public function toPrettyString(startRev:Int = 0, ?endRevParam:Int):String {
 		final endRev = endRevParam != null ? endRevParam : this.store.lastRevision;
 		final lines:Array<String> = [];
@@ -588,9 +593,10 @@ class Journal extends EventEmitter {
 		var asc = startRev <= end;
 		while (asc?r<end:r>end) {
 			final e = this.store.fetchTransaction(r);
-			for (entry in e) {
-				lines.push(entryToPrettyString(entry));
-			}
+            Lambda.foreach(e, (entry)->{
+                lines.push(entryToPrettyString(entry));
+                return true;
+            });
 			if (asc)
 				r += 1;
 			else
@@ -599,36 +605,35 @@ class Journal extends EventEmitter {
 		return lines.join('\n');
 	}
 
-    public function toJSON(startRev:Int = 0, ?endRevParam:Int):Array<String> {
-        final endRev = endRevParam != null ? endRevParam : this.store.lastRevision;
+	public function toJSON(startRev:Int = 0, ?endRevParam:Int):Array<String> {
+		final endRev = endRevParam != null ? endRevParam : this.store.lastRevision;
 		final entries:Array<String> = [];
-        var r = startRev;
-        var end = endRev;
-        while(r < end){
-            final e = this.store.fetchTransaction(r);
-            for (entry in e) {
+		var r = startRev;
+		var end = endRev;
+		while (r < end) {
+			final e = this.store.fetchTransaction(r);
+			for (entry in e) {
 				entries.push(entryToPrettyString(entry));
 			}
-            r += 1;
-        }
-        return entries;
-    }
+			r += 1;
+		}
+		return entries;
+	}
 
-    public function save(file: String):Promise<String> {
-        return new Promise<String>((resolve, reject) -> {
-            final json = Json.stringify(this.toJSON(), null, '\t');
-            try {
-                #if sys 
-                File.saveContent('${file}.json', json);
-                #else 
-                throw new Error("File saving not yet supported on this platform");
-                #end
-                resolve('${file}.json');
-            }catch(e){
-                reject(new Error(e.toString()));
-            }
-            return null;
-          });
-    }
-
+	public function save(file:String):Promise<String> {
+		return new Promise<String>((resolve, reject) -> {
+			final json = Json.stringify(this.toJSON(), null, '\t');
+			try {
+				#if sys
+				File.saveContent('${file}.json', json);
+				#else
+				throw new Error("File saving not yet supported on this platform");
+				#end
+				resolve('${file}.json');
+			} catch (e) {
+				reject(new Error(e.toString()));
+			}
+			return null;
+		});
+	}
 }

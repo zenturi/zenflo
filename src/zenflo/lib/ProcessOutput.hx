@@ -10,16 +10,16 @@ function isError(err:Dynamic):Bool {
 	return Std.isOfType(err, Error) || (Std.isOfType(err, Array) && (err.length > 0) && Std.isOfType(err[0], Error));
 }
 
-class ProcessOutput extends sneaker.tag.Tagged {
+class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 	public function new(ports:OutPorts, context:ProcessContext) {
-		super();
+		#if !cpp  super(); #end
 		this.ports = ports;
 		this.context = context;
 		this.nodeInstance = this.context.nodeInstance;
 		this.ip = this.context.ip;
 		this.result = this.context.result;
 		this.scope = this.context.scope;
-		this.newTag("zenflo:component");
+		#if !cpp  this.newTag("zenflo:component"); #end
 	}
 
 	var ports:OutPorts;
@@ -33,6 +33,12 @@ class ProcessOutput extends sneaker.tag.Tagged {
 	var result:ProcessResult;
 
 	var scope:String;
+
+    #if cpp
+	function debug(msg:String){
+		Sys.println('[zenflo:component] => $msg');
+	}
+	#end
 
 	/**
 		Sends an error object

@@ -133,11 +133,11 @@ class BaseNetwork extends EventEmitter {
 		#if !js
 		this.baseDir = options.baseDir != null ? options.baseDir : graph.properties.baseDir != null ? graph.properties.baseDir : Sys.getCwd();
 		#else
-		if (js.Browser.window == null) {
-			this.baseDir = options.baseDir || graph.properties.baseDir || untyped __js__("process.cwd()");
-		} else {
-			this.baseDir = options.baseDir || graph.properties.baseDir || '/';
-		}
+		#if nodejs 
+			this.baseDir = options.baseDir != null ? options.baseDir : graph.properties.baseDir != null ? graph.properties.baseDir : untyped __js__("process.cwd()");
+		#else 
+			this.baseDir = options.baseDir != null ? options.baseDir : graph.properties.baseDir != null ? graph.properties.baseDir : '/';
+		#end
 		#end
 
 		// As most NoFlo networks are long-running processes, the
@@ -625,9 +625,10 @@ class BaseNetwork extends EventEmitter {
 		final comp = /** @type {import("./Component").Component} */ (instance.component);
 		if (!comp.isReady()) {
 			return new Promise((resolve, reject) -> {
-				return comp.once('ready', (_) -> {
+				comp.once('ready', (_) -> {
 					resolve(instance);
 				});
+				return null;
 			});
 		}
 		return Promise.resolve(instance);
@@ -681,7 +682,7 @@ class BaseNetwork extends EventEmitter {
 		}
 
 		final emitSub = (type:String, data:Dynamic) -> {
-			if ((type == 'process-error') && (this.listeners('process-error').length == 0)) {
+			if ((type == 'process-error') /*&& (this.listeners('process-error').length == 0)*/) {
 				if (data.id && data.metadata && data.error) {
 					throw data.error;
 				}
@@ -760,12 +761,12 @@ class BaseNetwork extends EventEmitter {
 		});
 		socket.on('error', (events) -> {
 			final event:Dynamic = events[0];
-			if (this.listeners('process-error').length == 0) {
-				if (event.id && event.metadata && event.error) {
-					throw event.error;
-				}
-				throw event;
-			}
+			// if (this.listeners('process-error').length == 0) {
+			// 	if (event.id && event.metadata && event.error) {
+			// 		throw event.error;
+			// 	}
+			// 	throw event;
+			// }
 			this.bufferedEmit('process-error', event);
 		});
 		if (source == null || source.component == null) {

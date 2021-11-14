@@ -2,8 +2,9 @@
 
 -D no-deprecation-warnings 
 
+# -L haxe-concurrent
 -L tink_core
--L thx.core
+# -L thx.core
 -L tink_macro
 -L cloner
 -L sneaker

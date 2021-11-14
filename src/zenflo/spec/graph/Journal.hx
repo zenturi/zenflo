@@ -1,5 +1,6 @@
 package zenflo.spec.graph;
 
+import haxe.Timer;
 import buddy.BuddySuite;
 
 using equals.Equal;
@@ -144,11 +145,9 @@ DEL Foo(Bar)
 						j.undo();
 						g.groups[0].metadata["label"].should.be('all nodes');
 					});
-					it('redoing group metadata change', {
+					it('redoing group metadata change', () -> {
 						j.redo();
-						haxe.Timer.delay(() -> {
-							g.groups[0].metadata['label'].should.be('ALL NODES!');
-						}, 0);
+						g.groups[0].metadata['label'].should.be('ALL NODES!');
 					});
 
 					it('setting node metadata', {
@@ -159,13 +158,11 @@ DEL Foo(Bar)
 						j.undo();
 						g.getNode('Foo').metadata.keys().length.should.be(0);
 					});
-					it('redoing set node metadata', {
+					it('redoing set node metadata',(done)-> {
 						j.redo();
-						haxe.Timer.delay(() -> {
-							final node = g.getNode('Foo');
-							Reflect.isObject(node).should.be(true);
-							node.metadata['oneone'].should.be(11);
-						}, 0);
+						final node = g.getNode('Foo');
+					    Reflect.isObject(node).should.be(true);
+						node.metadata['oneone'].should.be(11);
 					});
 				});
 			});

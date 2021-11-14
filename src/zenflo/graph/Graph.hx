@@ -1,7 +1,9 @@
 package zenflo.graph;
 
 import haxe.io.Path;
+#if sys
 import sys.io.File;
+#end
 import tink.core.Promise;
 import haxe.Json;
 import cloner.Cloner;
@@ -431,34 +433,31 @@ class Graph extends EventEmitter {
 
 	public function setGroupMetadata(groupName:String, metadata:GraphGroupMetadata):Graph {
 		this.checkTransactionStart();
-		(() -> {
-			for (group in this.groups) {
-				if (group == null) {
-					continue;
-				}
-				if (group.name != groupName) {
-					continue;
-				}
-				final before = group.metadata.copy();
-					(() -> {
-						final g = group;
-						if (g.metadata == null) {
-							return;
-						}
-						for (item in metadata.keys()) {
-							final val = metadata[item];
-							
-							if (val != null) {
-								g.metadata[item] = val;
-							} else {
-								g.metadata.remove(item);
-							}
-						}
-					})();
-
-				this.emit('changeGroup', group, before, metadata);
+		Lambda.foreach(groups, (group) -> {
+			if (group == null) {
+				return false;
 			}
-		})();
+			if (group.name != groupName) {
+				return false;
+			}
+			final before = group.metadata.copy();
+			Lambda.foreach(metadata.keys(), (item) -> {
+				final g = group;
+				if (g.metadata == null) {
+					return false;
+				}
+				final val = metadata[item];
+
+				if (val != null) {
+					g.metadata[item] = val;
+				} else {
+					g.metadata.remove(item);
+				}
+			});
+
+			this.emit('changeGroup', group, before, metadata);
+			return true;
+		});
 
 		this.checkTransactionEnd();
 		return this;
@@ -509,57 +508,50 @@ class Graph extends EventEmitter {
 		}
 
 		this.checkTransactionStart();
-
-		(() -> {
-			for (edge in this.edges) {
-				if ((edge.from.node == node.id) || (edge.to.node == node.id)) {
-					this.removeEdge(edge.from.node, edge.from.port, edge.to.node, edge.to.port);
-				}
+		Lambda.foreach(this.edges, (edge) -> {
+			if ((edge.from.node == node.id) || (edge.to.node == node.id)) {
+				this.removeEdge(edge.from.node, edge.from.port, edge.to.node, edge.to.port);
 			}
-		})();
+			return true;
+		});
 
-		(() -> {
-			for (initializer in this.initializers) {
-				if (initializer.to.node == node.id) {
-					this.removeInitial(initializer.to.node, initializer.to.port);
-				}
+		Lambda.foreach(this.initializers, (initializer) -> {
+			if (initializer.to.node == node.id) {
+				this.removeInitial(initializer.to.node, initializer.to.port);
 			}
-		})();
+			return true;
+		});
 
-		(() -> {
-			for (pub in this.inports.keys()) {
-				final priv = this.inports[pub];
-				if (priv.process == id) {
-					this.removeInport(pub);
-				}
+		Lambda.foreach(this.inports.keys(), (pub) -> {
+			final priv = this.inports[pub];
+			if (priv.process == id) {
+				this.removeInport(pub);
 			}
-		})();
+			return true;
+		});
+		Lambda.foreach(this.outports.keys(), (pub) -> {
+			final priv = this.outports[pub];
+			if (priv.process == id) {
+				this.removeOutport(pub);
+			}
+			return true;
+		});
 
-		(() -> {
-			for (pub in this.outports.keys()) {
-				final priv = this.outports[pub];
-				if (priv.process == id) {
-					this.removeOutport(pub);
-				}
+		Lambda.foreach(this.groups, (group) -> {
+			if (group == null) {
+				return true;
 			}
-		})();
-
-		(() -> {
-			for (group in this.groups) {
-				if (group == null) {
-					continue;
-				}
-				final index = group.nodes.indexOf(id);
-				if (index == -1) {
-					continue;
-				}
-				group.nodes.splice(index, 1);
-				if (group.nodes.length == 0) {
-					// Don't leave empty groups behind
-					this.removeGroup(group.name);
-				}
+			final index = group.nodes.indexOf(id);
+			if (index == -1) {
+				return true;
 			}
-		})();
+			group.nodes.splice(index, 1);
+			if (group.nodes.length == 0) {
+				// Don't leave empty groups behind
+				this.removeGroup(group.name);
+			}
+			return true;
+		});
 
 		this.setNodeMetadata(id, new GraphNodeMetadata());
 		this.nodes = this.nodes.filter((n) -> n != node);
@@ -584,62 +576,61 @@ class Graph extends EventEmitter {
 		}
 		node.id = newId;
 
-		(() -> {
-			for (e in this.edges) {
-				final edge = e;
-				if (edge == null) {
-					continue;
-				}
-				if (edge.from.node == oldId) {
-					edge.from.node = newId;
-				}
-				if (edge.to.node == oldId) {
-					edge.to.node = newId;
-				}
+		Lambda.foreach(this.edges, (e) -> {
+			final edge = e;
+			if (edge == null) {
+				return true;
 			}
-		})();
+			if (edge.from.node == oldId) {
+				edge.from.node = newId;
+			}
+			if (edge.to.node == oldId) {
+				edge.to.node = newId;
+			}
 
-		(() -> {
-			for (iip in this.initializers) {
-				if (iip == null) {
-					continue;
-				}
-				if (iip.to.node == oldId) {
-					iip.to.node = newId;
-				}
-			}
-		})();
+			return true;
+		});
 
-		(() -> {
-			for (pub in this.inports.keys()) {
-				final priv = this.inports[pub];
-				if (priv.process == oldId) {
-					priv.process = newId;
-				}
+		Lambda.foreach(this.initializers, (iip) -> {
+			if (iip == null) {
+				return true;
 			}
-		})();
+			if (iip.to.node == oldId) {
+				iip.to.node = newId;
+			}
 
-		(() -> {
-			for (priv in this.outports) {
-				if (priv.process == oldId) {
-					priv.process = newId;
-				}
-			}
-		})();
+			return true;
+		});
 
-		(() -> {
-			for (group in this.groups) {
-				if (group == null) {
-					continue;
-				}
-				final index = group.nodes.indexOf(oldId);
-				if (index == -1) {
-					continue;
-				}
-				final g = group;
-				g.nodes[index] = newId;
+		Lambda.foreach(this.inports.keys(), (pub) -> {
+			final priv = this.inports[pub];
+			if (priv.process == oldId) {
+				priv.process = newId;
 			}
-		})();
+			return true;
+		});
+
+		Lambda.foreach(this.outports.keys(), (pub) -> {
+			final priv = this.outports[pub];
+			if (priv.process == oldId) {
+				priv.process = newId;
+			}
+			return true;
+		});
+
+		Lambda.foreach(this.groups, (group) -> {
+			if (group == null) {
+				return true;
+			}
+			final index = group.nodes.indexOf(oldId);
+			if (index == -1) {
+				return true;
+			}
+			final g = group;
+			g.nodes[index] = newId;
+			return true;
+		});
+
 		this.emit('renameNode', oldId, newId);
 		this.checkTransactionEnd();
 		return this;
@@ -663,6 +654,7 @@ class Graph extends EventEmitter {
 
 		final outPortName = this.getPortName(outPort);
 		final inPortName = this.getPortName(inPort);
+		
 		final some = (edges:Array<GraphEdge>) -> {
 			for (edge in edges) {
 				if ((edge.from.node == outNode) && (edge.from.port == outPortName) && (edge.to.node == inNode) && (edge.to.port == inPortName)) {
@@ -773,7 +765,7 @@ class Graph extends EventEmitter {
 		this.checkTransactionStart();
 		final outPort = this.getPortName(port);
 		final inPort = this.getPortName(port2);
-		this.edges = this.edges.filter((edge) -> {
+		this.edges = Lambda.filter(this.edges, (edge) -> {
 			if (node2 != null && inPort != null) {
 				if ((edge.from.node == node) && (edge.from.port == outPort) && (edge.to.node == node2) && (edge.to.port == inPort)) {
 					this.setEdgeMetadata(edge.from.node, edge.from.port, edge.to.node, edge.to.port, {});
@@ -837,19 +829,20 @@ class Graph extends EventEmitter {
 		}
 		final before = edge.metadata.copy();
 
-			(() -> {
-				for (item in metadata) {
-					final val = metadata[item];
-					if (edge.metadata == null) {
-						edge.metadata = {};
-					}
-					if (val != null) {
-						edge.metadata[item] = val;
-					} else {
-						edge.metadata.remove(item);
-					}
-				}
-			})();
+		Lambda.foreach(metadata.keys(), (item)->{
+			final val = metadata[item];
+			if (edge.metadata == null) {
+				edge.metadata = {};
+			}
+			if (val != null) {
+				edge.metadata[item] = val;
+			} else {
+				edge.metadata.remove(item);
+			}
+
+			return true;
+		});
+		
 
 		this.emit('changeEdge', edge, before, metadata);
 		this.checkTransactionEnd();
@@ -976,14 +969,16 @@ class Graph extends EventEmitter {
 		final portName = this.getPortName(port);
 		this.checkTransactionStart();
 
-		this.initializers = this.initializers.filter((iip) -> {
-			if (iip.to.node == node && iip.to.port == portName) {
-			  this.emit('removeInitial', iip);
-			  return false;
+		this.initializers = Lambda.filter(this.initializers, (iip) -> {
+			if (iip != null) {
+				if (iip.to.node == node && iip.to.port == portName) {
+					this.emit('removeInitial', iip);
+					return false;
+				}
 			}
 			return true;
-		  });
-		
+		});
+
 		this.checkTransactionEnd();
 		return this;
 	}
@@ -1014,23 +1009,20 @@ class Graph extends EventEmitter {
 			node.metadata = {};
 		}
 		final before = node.metadata.copy();
-		(() -> {
-			for (item in metadata.keys()) {
-				final val = metadata[item];
-				if (val != null) {
-					node.metadata[item] = val;
-				} else {
-					node.metadata.remove(item);
-				}
+		Lambda.foreach(metadata.keys(), (item) -> {
+			final val = metadata[item];
+			if (val != null) {
+				node.metadata[item] = val;
+			} else {
+				node.metadata.remove(item);
 			}
-		})();
+			return true;
+		});
 
 		this.emit('changeNode', node, before, metadata);
 		this.checkTransactionEnd();
 		return this;
 	}
-
-	public function setMaxListeners(arg0:Int) {}
 
 	/**
 		## Getting a node
@@ -1059,20 +1051,21 @@ class Graph extends EventEmitter {
 			this.inports[portName].metadata = new GraphNodeMetadata();
 		}
 		final before = this.inports[portName].metadata.copy();
-			(() -> {
-				for (item in metadata.keys()) {
-					final val = metadata[item];
-					final existingMeta = this.inports[portName].metadata;
-					if (existingMeta == null) {
-						continue;
-					}
-					if (val != null) {
-						existingMeta[item] = val;
-					} else {
-						existingMeta.remove(item);
-					}
-				}
-			})();
+		Lambda.foreach(metadata.keys(), (item)->{
+			final val = metadata[item];
+			final existingMeta = this.inports[portName].metadata;
+			if (existingMeta == null) {
+				return true;
+			}
+			if (val != null) {
+				existingMeta[item] = val;
+			} else {
+				existingMeta.remove(item);
+			}
+
+			return true;
+		});
+		
 
 		this.emit('changeInport', portName, this.inports[portName], before, metadata);
 		this.checkTransactionEnd();
@@ -1166,69 +1159,71 @@ class Graph extends EventEmitter {
 		json.properties.remove("baseDir");
 		json.properties.remove("componentLoader");
 
-		(() -> {
-			for (node in this.nodes) {
-				if (json.processes == null) {
-					json.processes = {};
-				}
-				json.processes.set(node.id, {
-					component: node.component,
-					metadata: {}
-				});
-				// json.processes[node.id] = {
-				// 	component: node.component
-				// };
-				if (node.metadata != null) {
-					json.processes[node.id].metadata = node.metadata.copy();
-				}
+		Lambda.foreach(this.nodes, (node)->{
+			if (json.processes == null) {
+				json.processes = {};
 			}
-		})();
-
-		(() -> {
-			for (edge in this.edges) {
-				final connection:GraphJsonEdge = {
-					src: {
-						process: edge.from.node,
-						port: edge.from.port,
-						index: edge.from.index,
-					},
-					tgt: {
-						process: edge.to.node,
-						port: edge.to.port,
-						index: edge.to.index,
-					},
-					data: null
-				};
-
-				if (edge.metadata != null && edge.metadata.keys().length != 0) {
-					connection.metadata = edge.metadata.copy();
-				}
-
-				if (json.connections == null) {
-					json.connections = [];
-				}
-				json.connections.push(connection);
+			json.processes.set(node.id, {
+				component: node.component,
+				metadata: {}
+			});
+			// json.processes[node.id] = {
+			// 	component: node.component
+			// };
+			if (node.metadata != null) {
+				json.processes[node.id].metadata = node.metadata.copy();
 			}
-		})();
-		(() -> {
-			for (initializer in this.initializers) {
-				final iip:GraphJsonEdge = {
-					data: initializer.from.data,
-					tgt: {
-						process: initializer.to.node,
-						port: initializer.to.port,
-						index: initializer.to.index,
-					},
-				};
-				if (initializer.metadata != null && initializer.metadata.keys().length != 0) {
-					iip.metadata = initializer.metadata.copy();
-				}
-				if (json.connections == null) {
-					json.connections = [];
-				}
-				json.connections.push(iip);
+
+			return true;
+		});
+		
+		Lambda.foreach(this.edges, (edge)->{
+			final connection:GraphJsonEdge = {
+				src: {
+					process: edge.from.node,
+					port: edge.from.port,
+					index: edge.from.index,
+				},
+				tgt: {
+					process: edge.to.node,
+					port: edge.to.port,
+					index: edge.to.index,
+				},
+				data: null
+			};
+
+			if (edge.metadata != null && edge.metadata.keys().length != 0) {
+				connection.metadata = edge.metadata.copy();
 			}
-		})();
+
+			if (json.connections == null) {
+				json.connections = [];
+			}
+			json.connections.push(connection);
+
+			return true;
+		});
+
+		Lambda.foreach(this.initializers, (initializer)->{
+			final iip:GraphJsonEdge = {
+				data: initializer.from.data,
+				tgt: {
+					process: initializer.to.node,
+					port: initializer.to.port,
+					index: initializer.to.index,
+				},
+			};
+			if (initializer.metadata != null && initializer.metadata.keys().length != 0) {
+				iip.metadata = initializer.metadata.copy();
+			}
+			if (json.connections == null) {
+				json.connections = [];
+			}
+			json.connections.push(iip);
+
+			return true;
+		});
+		
 
 		return json;
 	}
@@ -1318,7 +1313,7 @@ class Graph extends EventEmitter {
 							graph.addInitial(conn.data, conn.tgt.process, graph.getPortName(conn.tgt.port), meta);
 						}
 						continue;
-					} 
+					}
 					if (conn.src == null) {
 						continue;
 					}
@@ -1372,14 +1367,18 @@ class Graph extends EventEmitter {
 	}
 
 	public static function loadFile(graphFilePath:String):Promise<Graph> {
+		#if sys
 		var input = File.read(graphFilePath, false);
 		var buf = input.readAll();
 		var ext = Path.extension(graphFilePath);
-		if(ext == "json"){
+		if (ext == "json") {
 			return loadJSON(buf.toString());
-		} else if(ext == ".fbp"){
+		} else if (ext == ".fbp") {
 			throw "Not yet implemented for .fbp";
 		}
 		throw "Unsupported file";
+		#else
+		return Promise.resolve(null);
+		#end
 	}
 }

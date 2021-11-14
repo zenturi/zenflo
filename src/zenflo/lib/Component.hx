@@ -3,8 +3,6 @@ package zenflo.lib;
 import haxe.Rest;
 import zenflo.lib.Ports.normalizePortName;
 import zenflo.lib.InPort.InPortOptions;
-import sneaker.tag.Tagged;
-import sneaker.log.*;
 import tink.core.Error;
 import zenflo.lib.ProcessContext;
 import zenflo.lib.ProcessOutput;
@@ -245,7 +243,7 @@ class Component extends EventEmitter {
 						if (load > 0) {
 							return;
 						}
-						this.removeListener('deactivate', checkLoad);
+						// this.removeListener('deactivate', checkLoad);
 						resolve(null);
 					};
 
@@ -919,13 +917,16 @@ class Component extends EventEmitter {
 	}
 }
 
-private class DebugComponent extends Tagged {
+private class DebugComponent #if !cpp extends sneaker.tag.Tagged #end {
+	#if cpp private var tag:String; #end
 	public function new(tag:String) {
-		super();
-		this.newTag(tag);
+		#if !cpp super(); #end
+		#if !cpp this.newTag(tag); #end
+		#if cpp this.tag = tag; #end
 	}
 
 	public function Debug(message:String) {
-		this.debug(message);
+		#if !cpp this.debug(message); #end
+		#if cpp Sys.println('[$tag] => $message'); #end
 	}
 }
