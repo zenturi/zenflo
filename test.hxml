@@ -4,7 +4,7 @@ editor.hxml
 -m zenflo.spec.Test
 
 -D buddy-colors
---hl bin/test.hl
+--neko bin/test.n
 
 
---cmd hl bin/test.hl
+--cmd npx neko bin/test.n

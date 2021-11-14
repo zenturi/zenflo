@@ -17,7 +17,6 @@ This project uses [lix.pm](https://github.com/lix-pm/lix.client) as Haxe package
 Run `npm install` to install the dependencies.
 
 ### Run Tests
-
 ```
 npx run haxe test.hxml
 ```
