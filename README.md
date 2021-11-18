@@ -1,7 +1,7 @@
 # ZenFlo
 
 ## Flow Based Programming Kit.
-ZenFlo is an implementation of [flow-based programming](http://en.wikipedia.org/wiki/Flow-based_programming) for Haxe running on and expected to run on all Haxe targets. It is a port of the infamous [NoFlo](https://noflojs.org)
+ZenFlo is an implementation of [flow-based programming](http://en.wikipedia.org/wiki/Flow-based_programming) for Haxe running on and expected to run on all Haxe targets. It is a port of the famous [NoFlo](https://noflojs.org)
 
 ## Scope
 ZenFlo is a way to coordinate and reorganize data flow in any application. If you are building no-code/low-code programs or editors, ZenFlo handles that. Each node is a black-box or small unit of your program, and ZenFlo helps you connect these nodes in such a way that they are portable and reusable.
