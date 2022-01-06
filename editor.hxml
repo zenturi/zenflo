@@ -1,10 +1,12 @@
 -cp src/
 
+
+-D analyzer-optimize
+# --dce no
 -D no-deprecation-warnings 
 
-# -L haxe-concurrent
 -L tink_core
-# -L thx.core
+-L polygonal-ds
 -L tink_macro
 -L cloner
 -L sneaker

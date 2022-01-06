@@ -135,13 +135,13 @@ function equivalent(a:Graph, b:Graph):Bool {
 class Graph extends EventEmitter {
 	public var name:String;
 
-	public var nodes:Array<GraphNode>;
+	public var nodes:ZArray<GraphNode>;
 
-	public var edges:Array<GraphEdge>;
+	public var edges:ZArray<GraphEdge>;
 
-	public var initializers:Array<GraphIIP>;
+	public var initializers:ZArray<GraphIIP>;
 
-	public var groups:Array<GraphGroup>;
+	public var groups:ZArray<GraphGroup>;
 
 	public var inports:DynamicAccess<GraphExportedPort>;
 	public var outports:DynamicAccess<GraphExportedPort>;
@@ -156,12 +156,12 @@ class Graph extends EventEmitter {
 		this.setMaxListeners(0);
 		this.name = name;
 		this.properties = {};
-		this.nodes = [];
-		this.edges = [];
-		this.initializers = [];
+		this.nodes = new ZArray();
+		this.edges = new ZArray();
+		this.initializers = new ZArray();
 		this.inports = {};
 		this.outports = {};
-		this.groups = [];
+		this.groups = new ZArray();
 		this.transaction = {
 			id: null,
 			depth: 0,
@@ -386,6 +386,7 @@ class Graph extends EventEmitter {
 			nodes: nodes,
 			metadata: metadata,
 		};
+
 		this.groups.push(g);
 		this.emit('addGroup', g);
 
@@ -396,27 +397,25 @@ class Graph extends EventEmitter {
 
 	public function renameGroup(oldName:String, newName:String):Graph {
 		this.checkTransactionStart();
-		(() -> {
-			for (group in this.groups) {
-				if (group == null) {
-					continue;
-				}
-				if (group.name != oldName) {
-					continue;
-				}
-				final g = group;
-				g.name = newName;
-				this.emit('renameGroup', oldName, newName);
+		this.groups.iter((group) -> {
+			if (group == null) {
+				return;
 			}
-		})();
-
+			if (group.name != oldName) {
+				return;
+			}
+			final g = group;
+			g.name = newName;
+			this.emit('renameGroup', oldName, newName);
+		});
 		this.checkTransactionEnd();
 		return this;
 	}
 
 	public function removeGroup(groupName:String):Graph {
 		this.checkTransactionStart();
-		this.groups = this.groups.filter((group) -> {
+
+		this.groups = Lambda.filter(this.groups, (group) -> {
 			if (group == null) {
 				return false;
 			}
@@ -433,18 +432,18 @@ class Graph extends EventEmitter {
 
 	public function setGroupMetadata(groupName:String, metadata:GraphGroupMetadata):Graph {
 		this.checkTransactionStart();
-		Lambda.foreach(groups, (group) -> {
+		this.groups.iter((group) -> {
 			if (group == null) {
-				return false;
+				return;
 			}
 			if (group.name != groupName) {
-				return false;
+				return;
 			}
 			final before = group.metadata.copy();
-			Lambda.foreach(metadata.keys(), (item) -> {
+			for (item in metadata.keys()) {
 				final g = group;
 				if (g.metadata == null) {
-					return false;
+					return;
 				}
 				final val = metadata[item];
 
@@ -453,10 +452,8 @@ class Graph extends EventEmitter {
 				} else {
 					g.metadata.remove(item);
 				}
-			});
-
+			}
 			this.emit('changeGroup', group, before, metadata);
-			return true;
 		});
 
 		this.checkTransactionEnd();
@@ -508,19 +505,28 @@ class Graph extends EventEmitter {
 		}
 
 		this.checkTransactionStart();
-		Lambda.foreach(this.edges, (edge) -> {
+		this.edges.iter((edge) -> {
 			if ((edge.from.node == node.id) || (edge.to.node == node.id)) {
 				this.removeEdge(edge.from.node, edge.from.port, edge.to.node, edge.to.port);
 			}
-			return true;
 		});
-
-		Lambda.foreach(this.initializers, (initializer) -> {
+		// Lambda.foreach(this.edges, (edge) -> {
+		// 	if ((edge.from.node == node.id) || (edge.to.node == node.id)) {
+		// 		this.removeEdge(edge.from.node, edge.from.port, edge.to.node, edge.to.port);
+		// 	}
+		// 	return true;
+		// });
+		this.initializers.iter((initializer) -> {
 			if (initializer.to.node == node.id) {
 				this.removeInitial(initializer.to.node, initializer.to.port);
 			}
-			return true;
 		});
+		// Lambda.foreach(this.initializers, (initializer) -> {
+		// 	if (initializer.to.node == node.id) {
+		// 		this.removeInitial(initializer.to.node, initializer.to.port);
+		// 	}
+		// 	return true;
+		// });
 
 		Lambda.foreach(this.inports.keys(), (pub) -> {
 			final priv = this.inports[pub];
@@ -536,25 +542,44 @@ class Graph extends EventEmitter {
 			}
 			return true;
 		});
-
-		Lambda.foreach(this.groups, (group) -> {
+		this.groups.iter((group) -> {
 			if (group == null) {
-				return true;
+				return;
 			}
 			final index = group.nodes.indexOf(id);
 			if (index == -1) {
-				return true;
+				return;
 			}
 			group.nodes.splice(index, 1);
 			if (group.nodes.length == 0) {
 				// Don't leave empty groups behind
 				this.removeGroup(group.name);
 			}
-			return true;
 		});
+		// Lambda.foreach(this.groups, (group) -> {
+		// 	if (group == null) {
+		// 		return true;
+		// 	}
+		// 	final index = group.nodes.indexOf(id);
+		// 	if (index == -1) {
+		// 		return true;
+		// 	}
+		// 	group.nodes.splice(index, 1);
+		// 	if (group.nodes.length == 0) {
+		// 		// Don't leave empty groups behind
+		// 		this.removeGroup(group.name);
+		// 	}
+		// 	return true;
+		// });
 
 		this.setNodeMetadata(id, new GraphNodeMetadata());
-		this.nodes = this.nodes.filter((n) -> n != node);
+		this.nodes = Lambda.filter(this.nodes, (n) -> {
+			if (n != node)
+				return true;
+			return false;
+		});
+		// this.nodes.forEach((n, _)-> n != node ? n : null);
+		// this.nodes = this.nodes.filter((n) -> n != node);
 		this.emit('removeNode', node);
 
 		this.checkTransactionEnd();
@@ -654,8 +679,8 @@ class Graph extends EventEmitter {
 
 		final outPortName = this.getPortName(outPort);
 		final inPortName = this.getPortName(inPort);
-		
-		final some = (edges:Array<GraphEdge>) -> {
+
+		final some = (edges:ZArray<GraphEdge>) -> {
 			for (edge in edges) {
 				if ((edge.from.node == outNode) && (edge.from.port == outPortName) && (edge.to.node == inNode) && (edge.to.port == inPortName)) {
 					return true;
@@ -705,7 +730,7 @@ class Graph extends EventEmitter {
 		final inIndexVal = (inIndex == null) ? null : inIndex;
 		final outIndexVal = (outIndex == null) ? null : outIndex;
 
-		final some = (edges:Array<GraphEdge>) -> {
+		final some = (edges:ZArray<GraphEdge>) -> {
 			for (edge in edges) {
 				if ((edge.from.node == outNode) && (edge.from.port == outPortName) && (edge.from.index == outIndexVal) && (edge.to.node == inNode)
 					&& (edge.to.port == inPortName) && (edge.to.index == inIndexVal)) {
@@ -765,6 +790,7 @@ class Graph extends EventEmitter {
 		this.checkTransactionStart();
 		final outPort = this.getPortName(port);
 		final inPort = this.getPortName(port2);
+
 		this.edges = Lambda.filter(this.edges, (edge) -> {
 			if (node2 != null && inPort != null) {
 				if ((edge.from.node == node) && (edge.from.port == outPort) && (edge.to.node == node2) && (edge.to.port == inPort)) {
@@ -796,7 +822,8 @@ class Graph extends EventEmitter {
 	public function getEdge(node:GraphNodeID, port:String, node2:GraphNodeID, port2:String):Null<GraphEdge> {
 		final outPort = this.getPortName(port);
 		final inPort = this.getPortName(port2);
-		final edge = this.edges.filter((edge) -> {
+
+		final edge = Lambda.filter(this.edges, (edge) -> {
 			if (edge == null) {
 				return false;
 			}
@@ -829,7 +856,7 @@ class Graph extends EventEmitter {
 		}
 		final before = edge.metadata.copy();
 
-		Lambda.foreach(metadata.keys(), (item)->{
+		for(item in metadata.keys()){
 			final val = metadata[item];
 			if (edge.metadata == null) {
 				edge.metadata = {};
@@ -839,11 +866,9 @@ class Graph extends EventEmitter {
 			} else {
 				edge.metadata.remove(item);
 			}
+		}
 
-			return true;
-		});
-		
-
+	
 		this.emit('changeEdge', edge, before, metadata);
 		this.checkTransactionEnd();
 		return this;
@@ -968,17 +993,43 @@ class Graph extends EventEmitter {
 	public function removeInitial(node:GraphNodeID, port:String) {
 		final portName = this.getPortName(port);
 		this.checkTransactionStart();
-
 		this.initializers = Lambda.filter(this.initializers, (iip) -> {
-			if (iip != null) {
-				if (iip.to.node == node && iip.to.port == portName) {
-					this.emit('removeInitial', iip);
-					return false;
-				}
+			if (iip.to.node == node && iip.to.port == portName) {
+				this.emit('removeInitial', iip);
+				return false;
 			}
+
 			return true;
 		});
 
+		// this.initializers = this.initializers.forEach((iip, _)->{
+		// 	if (iip.to.node == node && iip.to.port == portName) {
+		// 		this.emit('removeInitial', iip);
+		// 		return null;
+		// 	}
+
+		// 	return iip;
+		// });
+
+		// this.initializers.filter((iip)->{
+		// 	if (iip.to.node == node && iip.to.port == portName) {
+		// 		// trace('removeInitial', iip);
+		// 		this.emit('removeInitial', iip);
+		// 		return false;
+		// 	}
+		// 	return true;
+		// });
+		// this.initializers = Lambda.filter(this.initializers, (iip) -> {
+		// 	if (iip != null) {
+		// 		if (iip.to.node == node && iip.to.port == portName) {
+		// 			// trace('removeInitial', iip);
+		// 			this.emit('removeInitial', iip);
+		// 			return true;
+		// 		}
+		// 	}
+		// 	return false;
+		// });
+		// trace(port, this.initializers);
 		this.checkTransactionEnd();
 		return this;
 	}
@@ -1033,7 +1084,7 @@ class Graph extends EventEmitter {
 		```
 	**/
 	public function getNode(id:GraphNodeID):Null<GraphNode> {
-		final nodes = this.nodes.filter((node) -> node != null && node.id == id);
+		final nodes = [for (node in this.nodes) if (node != null && node.id == id) node; else continue];
 		if (nodes.length == 0) {
 			return null;
 		}
@@ -1051,7 +1102,7 @@ class Graph extends EventEmitter {
 			this.inports[portName].metadata = new GraphNodeMetadata();
 		}
 		final before = this.inports[portName].metadata.copy();
-		Lambda.foreach(metadata.keys(), (item)->{
+		Lambda.foreach(metadata.keys(), (item) -> {
 			final val = metadata[item];
 			final existingMeta = this.inports[portName].metadata;
 			if (existingMeta == null) {
@@ -1065,7 +1116,6 @@ class Graph extends EventEmitter {
 
 			return true;
 		});
-		
 
 		this.emit('changeInport', portName, this.inports[portName], before, metadata);
 		this.checkTransactionEnd();
@@ -1091,19 +1141,18 @@ class Graph extends EventEmitter {
 				dot += '    ${wrapQuotes(node.id)} [label=${wrapQuotes(node.id)} shape=box]\n';
 			}
 		})();
-
-		(() -> {
-			for (id => initializer in this.initializers) {
-				var data = null;
-				if (Reflect.isFunction(initializer.from.data)) {
-					data = 'Function';
-				} else {
-					data = Json.stringify(initializer.from.data);
-				}
-				dot += '    data${id} [label=${wrapQuotes(data)} shape=plaintext]\n';
-				dot += '    data${id} -> ${wrapQuotes(initializer.to.node)}[headlabel=${cleanPort(initializer.to.port)} labelfontcolor=blue labelfontsize=8.0]\n';
+		this.initializers.forEach((initializer, id) -> {
+			var data = null;
+			if (Reflect.isFunction(initializer.from.data)) {
+				data = 'Function';
+			} else {
+				data = Json.stringify(initializer.from.data);
 			}
-		})();
+			dot += '    data${id} [label=${wrapQuotes(data)} shape=plaintext]\n';
+			dot += '    data${id} -> ${wrapQuotes(initializer.to.node)}[headlabel=${cleanPort(initializer.to.port)} labelfontcolor=blue labelfontsize=8.0]\n';
+
+			return initializer;
+		});
 
 		(() -> {
 			for (edge in this.edges) {
@@ -1120,7 +1169,7 @@ class Graph extends EventEmitter {
 		final yuml:Array<String> = [];
 
 		(() -> {
-			for (id => initializer in this.initializers) {
+			for (initializer in this.initializers) {
 				yuml.push('(start)[${initializer.to.port}]->(${initializer.to.node})');
 			}
 		})();
@@ -1140,16 +1189,7 @@ class Graph extends EventEmitter {
 			properties: {},
 			inports: this.inports.copy(),
 			outports: this.outports.copy(),
-			groups: this.groups.map((group) -> {
-				final groupData:GraphGroup = {
-					name: group.name,
-					nodes: group.nodes,
-				};
-				if (group.metadata != null && group.metadata.keys().length != 0) {
-					groupData.metadata = group.metadata.copy();
-				}
-				return groupData;
-			}),
+			groups: [],
 			processes: {},
 			connections: [],
 		};
@@ -1159,7 +1199,18 @@ class Graph extends EventEmitter {
 		json.properties.remove("baseDir");
 		json.properties.remove("componentLoader");
 
-		Lambda.foreach(this.nodes, (node)->{
+		this.groups.iter((group) -> {
+			final groupData:GraphGroup = {
+				name: group.name,
+				nodes: group.nodes,
+			};
+			if (group.metadata != null && group.metadata.keys().length != 0) {
+				groupData.metadata = group.metadata.copy();
+			}
+			json.groups.push(groupData);
+		});
+
+		Lambda.foreach(this.nodes, (node) -> {
 			if (json.processes == null) {
 				json.processes = {};
 			}
@@ -1176,21 +1227,25 @@ class Graph extends EventEmitter {
 
 			return true;
 		});
-		
-		Lambda.foreach(this.edges, (edge)->{
+
+		Lambda.foreach(this.edges, (edge) -> {
 			final connection:GraphJsonEdge = {
 				src: {
 					process: edge.from.node,
 					port: edge.from.port,
-					index: edge.from.index,
 				},
 				tgt: {
 					process: edge.to.node,
 					port: edge.to.port,
-					index: edge.to.index,
-				},
-				data: null
+				}
 			};
+
+			if(edge.from != null && edge.from.index != null){
+				connection.src.index = edge.from.index;
+			}
+			if(edge.to != null && edge.to.index != null){
+				connection.tgt.index = edge.to.index;
+			}
 
 			if (edge.metadata != null && edge.metadata.keys().length != 0) {
 				connection.metadata = edge.metadata.copy();
@@ -1204,15 +1259,17 @@ class Graph extends EventEmitter {
 			return true;
 		});
 
-		Lambda.foreach(this.initializers, (initializer)->{
+		Lambda.foreach(this.initializers, (initializer) -> {
 			final iip:GraphJsonEdge = {
 				data: initializer.from.data,
 				tgt: {
 					process: initializer.to.node,
-					port: initializer.to.port,
-					index: initializer.to.index,
+					port: initializer.to.port
 				},
 			};
+			if(initializer.to != null && initializer.to.index != null){
+				iip.tgt.index = initializer.to.index;
+			}
 			if (initializer.metadata != null && initializer.metadata.keys().length != 0) {
 				iip.metadata = initializer.metadata.copy();
 			}
@@ -1223,7 +1280,6 @@ class Graph extends EventEmitter {
 
 			return true;
 		});
-		
 
 		return json;
 	}

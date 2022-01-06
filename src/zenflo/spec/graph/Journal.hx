@@ -76,13 +76,18 @@ DEL Foo(Bar)
 					g.addEdge('Foo', 'out', 'Baz', 'in');
 					g.addInitial(42, 'Foo', 'in');
 					g.removeNode('Foo');
+					beforeEach((done) -> {
+						haxe.Timer.delay(() -> {
+							done();
+						}, 0);
+					});
 					it('should change the graph', {
 						j.moveToRevision(0);
-						g.nodes.length.should.be(0);
+						g.nodes.size.should.be(0);
 						j.moveToRevision(2);
-						g.nodes.length.should.be(2);
+						g.nodes.size.should.be(2);
 						j.moveToRevision(5);
-						g.nodes.length.should.be(1);
+						g.nodes.size.should.be(1);
 					});
 				});
 
@@ -93,24 +98,25 @@ DEL Foo(Bar)
 					g.addNode('Baz', 'Foo');
 					g.addEdge('Foo', 'out', 'Baz', 'in');
 					g.addInitial(42, 'Foo', 'in');
+
 					final graphBeforeError = g.toJSON();
-					it('undo should restore previous revision', {
-						g.nodes.length.should.be(2);
+					it('undo should restore previous revision',  ()->{
+						g.nodes.size.should.be(2);
 						g.removeNode('Foo');
-						g.nodes.length.should.be(1);
+						g.nodes.size.should.be(1);
 						j.undo();
-						g.nodes.length.should.be(2);
+						g.nodes.size.should.be(2);
 						g.toJSON().equals(graphBeforeError);
 					});
 					it('redo should apply the same change again', {
 						j.redo();
-						g.nodes.length.should.be(1);
+						g.nodes.size.should.be(1);
 					});
 					it('undo should also work multiple revisions back', {
 						g.removeNode('Baz');
 						j.undo();
 						j.undo();
-						g.nodes.length.should.be(2);
+						g.nodes.size.should.be(2);
 						g.toJSON().equals(graphBeforeError);
 					});
 				});
@@ -124,12 +130,12 @@ DEL Foo(Bar)
 
 					it('adding group', {
 						g.addGroup('all', ['Foo', 'Bax'], {label: 'all nodes'});
-						g.groups.length.should.be(1);
+						g.groups.size.should.be(1);
 						g.groups[0].name.should.be('all');
 					});
 					it('undoing group add', {
 						j.undo();
-						g.groups.length.should.be(0);
+						g.groups.size.should.be(0);
 					});
 					it('redoing group add', {
 						j.redo();
@@ -145,6 +151,11 @@ DEL Foo(Bar)
 						j.undo();
 						g.groups[0].metadata["label"].should.be('all nodes');
 					});
+					// beforeEach((done) -> {
+					// 	haxe.Timer.delay(() -> {
+					// 		done();
+					// 	}, 0);
+					// });
 					it('redoing group metadata change', () -> {
 						j.redo();
 						g.groups[0].metadata['label'].should.be('ALL NODES!');
@@ -158,10 +169,10 @@ DEL Foo(Bar)
 						j.undo();
 						g.getNode('Foo').metadata.keys().length.should.be(0);
 					});
-					it('redoing set node metadata',(done)-> {
+					it('redoing set node metadata', () -> {
 						j.redo();
 						final node = g.getNode('Foo');
-					    Reflect.isObject(node).should.be(true);
+						Reflect.isObject(node).should.be(true);
 						node.metadata['oneone'].should.be(11);
 					});
 				});

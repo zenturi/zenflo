@@ -10,5 +10,5 @@ typedef GraphJsonEdge = {
 typedef GraphJsonEdgePack = {
     process:GraphNodeID,
     port:String,
-    index:Null<Int>
+    ?index:Null<Int>
 }

@@ -19,14 +19,14 @@ abstract class JournalStore extends EventEmitter {
 		return 0;
 	}
 
-	public function putTransaction(revId:Int, entries:Array<TransactionEntry>) {
+	public function putTransaction(revId:Int, entries:ZArray<TransactionEntry>) {
 		if (revId > this.lastRevision) {
 			this.lastRevision = revId;
 		}
 		this.emit('transaction', revId, entries);
 	}
 
-	public function fetchTransaction(revId:Int):Array<TransactionEntry> {
+	public function fetchTransaction(revId:Int):ZArray<TransactionEntry> {
 		return [];
 	}
 }

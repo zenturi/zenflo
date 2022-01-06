@@ -1,5 +1,7 @@
 package zenflo.graph;
 
+import haxe.CallStack;
+import polygonal.ds.ArrayedQueue;
 #if sys
 import sys.io.File;
 import sys.FileSystem;
@@ -71,13 +73,16 @@ function entryToPrettyString(entry:TransactionEntry):String {
 // To set, not just update (append) metadata
 function calculateMeta(oldMeta:JournalMetadata, newMeta:JournalMetadata):JournalMetadata {
 	final setMeta:JournalMetadata = new DynamicAccess();
-	for (k in oldMeta.keys()) {
+	Lambda.foreach(oldMeta.keys(), (k) -> {
 		setMeta[k] = null;
-	}
-	for (k in newMeta.keys()) {
+		return true;
+	});
+
+	Lambda.foreach(newMeta.keys(), (k) -> {
 		final v = newMeta[k];
 		setMeta[k] = v;
-	}
+		return true;
+	});
 	return setMeta;
 }
 
@@ -93,7 +98,12 @@ function calculateMeta(oldMeta:JournalMetadata, newMeta:JournalMetadata):Journal
 **/
 class Journal extends EventEmitter {
 	public var graph:Graph;
-	public var entries:Array<TransactionEntry>;
+	public var entries:ZArray<TransactionEntry>;
+	public var history:ZArray<ZArray<TransactionEntry>>;
+	public var actionList:ZArray<JournalAction>;
+	public var actionHistory:ZArray<ZArray<JournalAction>>;
+	public var queueStackNormal:JournalStack<ZArray<JournalAction>>;
+	public var queueStackReverse:JournalStack<ZArray<JournalAction>>;
 	public var subscribed:Bool;
 	public var store:JournalStore;
 	public var currentRevision:Int;
@@ -104,6 +114,11 @@ class Journal extends EventEmitter {
 		this.graph = graph;
 		// Entries added during this revision
 		this.entries = [];
+		this.history = [];
+		this.actionList = [];
+		this.actionHistory = [];
+		this.queueStackNormal = new JournalStack<ZArray<JournalAction>>();
+		this.queueStackReverse = new JournalStack<ZArray<JournalAction>>();
 		// Whether we should respond to graph change notifications or not
 		this.subscribed = true;
 		this.store = store != null ? store : new MemoryJournalStore(this.graph);
@@ -113,48 +128,42 @@ class Journal extends EventEmitter {
 			this.currentRevision = -1;
 
 			this.startTransaction('initial', metadata != null ? metadata : {});
-            Lambda.foreach(this.graph.nodes, (node)->{
-                this.appendCommand('addNode', node);
-                return true;
-            });
+			this.graph.nodes.iter((node) -> {
+				this.appendCommand('addNode', node);
+			});
+			this.graph.edges.iter((edge) -> {
+				this.appendCommand('addEdge', edge);
+			});
 
-            Lambda.foreach(this.graph.edges, (edge)->{
-                this.appendCommand('addEdge', edge);
-                return true;
-            });
-			
-			Lambda.foreach(this.graph.initializers, (iip)->{
-                this.appendCommand('addInitial', iip);
-                return true;
-            });
-
+			this.graph.initializers.iter((iip) -> {
+				this.appendCommand('addInitial', iip);
+			});
 
 			if (this.graph.properties.keys().length > 0) {
 				this.appendCommand('changeProperties', this.graph.properties);
 			}
 
-            Lambda.foreach(this.graph.inports.keys(), (name)->{
-                final port = this.graph.inports[name];
-                this.appendCommand('addInport', {
-                    name: name,
-                    port: port
-                });
-                return true;
-            });
+			Lambda.foreach(this.graph.inports.keys(), (name) -> {
+				final port = this.graph.inports[name];
+				this.appendCommand('addInport', {
+					name: name,
+					port: port
+				});
+				return true;
+			});
 
-            Lambda.foreach(this.graph.outports.keys(), (name)->{
-                final port = this.graph.outports[name];
-                this.appendCommand('addOutport', {
-                    name: name,
-                    port: port
-                });
-                return true;
-            });
-			
-            Lambda.foreach(this.graph.groups, (group)->{
-                this.appendCommand('addGroup', group);
-                return true;
-            });
+			Lambda.foreach(this.graph.outports.keys(), (name) -> {
+				final port = this.graph.outports[name];
+				this.appendCommand('addOutport', {
+					name: name,
+					port: port
+				});
+				return true;
+			});
+
+			this.graph.groups.iter((group) -> {
+				this.appendCommand('addGroup', group);
+			});
 
 			this.endTransaction('initial', metadata != null ? metadata : {});
 		} else {
@@ -221,9 +230,9 @@ class Journal extends EventEmitter {
 			});
 		});
 		this.graph.on('removeGroup', (group) -> this.appendCommand('removeGroup', group[0]));
-		this.graph.on('changeGroup', (vals:Rest<Dynamic>)->{
-            this.appendCommand('changeGroup', {name: vals[0].name, "new": vals[0].metadata, old: vals[1]});
-        });
+		this.graph.on('changeGroup', (vals:Rest<Dynamic>) -> {
+			this.appendCommand('changeGroup', {name: vals[0].name, "new": vals[0].metadata, old: vals[1]});
+		});
 
 		this.graph.on('addExport', (exported) -> this.appendCommand('addExport', exported[0]));
 		this.graph.on('removeExport', (exported) -> this.appendCommand('removeExport', exported[0]));
@@ -251,7 +260,7 @@ class Journal extends EventEmitter {
 		if (!this.subscribed) {
 			return;
 		}
-		if (this.entries.length > 0) {
+		if (this.entries.size > 0) {
 			throw new Error('Inconsistent @entries');
 		}
 		this.currentRevision += 1;
@@ -266,13 +275,14 @@ class Journal extends EventEmitter {
 			return;
 		}
 
-        final a:DynamicAccess<Any> = args;
+		final a:DynamicAccess<Any> = args;
 		final entry:TransactionEntry = {
 			cmd: cmd,
 			args: a.copy(),
 			rev: rev,
 		};
 		this.entries.push(entry);
+		// this.actionList.add(new JournalAction(cmd, executeEntry.bind(entry), executeEntryInversed.bind(entry)));
 	}
 
 	public function endTransaction(id:String, meta:Null<JournalMetadata>) {
@@ -288,12 +298,16 @@ class Journal extends EventEmitter {
 		// a minimal set of changes, like eliminating changes early in transaction
 		// which were later reverted/overwritten
 		this.store.putTransaction(this.currentRevision, this.entries);
+		// this.history.insert(this.currentRevision, this.entries);
+		// this.queueStackNormal.push(this.actionList);
+		// this.actionHistory.insert(this.currentRevision, this.actionList);
 		this.entries = [];
 	}
 
 	public function executeEntry(entry:TransactionEntry) {
 		final a = entry.args;
 		var _new = Reflect.field(a, "new");
+		// trace("execute", entry.cmd);
 		switch (entry.cmd) {
 			case 'addNode':
 				{
@@ -357,7 +371,8 @@ class Journal extends EventEmitter {
 				}
 			case 'changeGroup':
 				{
-                    // trace(haxe.Json.stringify(cast(this.store, MemoryJournalStore).transactions));
+					// trace(a.old, _new);
+					// trace(CallStack.callStack());
 					this.graph.setGroupMetadata(a.name, calculateMeta(a.old, _new));
 				}
 			case 'addInport':
@@ -400,6 +415,7 @@ class Journal extends EventEmitter {
 	public function executeEntryInversed(entry:TransactionEntry) {
 		final a = entry.args;
 		var _new = Reflect.field(a, "new");
+		// trace("reversed", entry.cmd);
 		switch (entry.cmd) {
 			case 'addNode':
 				{
@@ -508,34 +524,40 @@ class Journal extends EventEmitter {
 		}
 
 		this.subscribed = false;
+
 		if (revId > this.currentRevision) {
 			// Forward replay journal to revId
-			var start = this.currentRevision + 1;
+			var start =  this.currentRevision + 1;
 			var r = start;
 			var end = revId;
 			var asc = start <= end;
+			
 			while (asc ? r <= end : r >= end) {
-                Lambda.foreach(this.store.fetchTransaction(r), (entry)->{
-                    this.executeEntry(entry);
-                    return true;
-                });
+				this.store.fetchTransaction(r).iter((entry) -> {
+					// trace(entry);
+					this.executeEntry(entry);
+				});
+
 				if (asc)
 					r += 1;
 				else
 					r -= 1;
 			}
 		} else {
+			
 			// Move backwards, and apply inverse changes
 			var r = this.currentRevision;
 			var end = revId + 1;
-			while(r >= end) {
+			
+			while (r >= end) {
 				// Apply entries in reverse order
-				final entries = this.store.fetchTransaction(r).slice(0);
-				entries.reverse();
-                Lambda.foreach(entries, (entry)->{
-                    this.executeEntryInversed(entry);
-                    return true;
-                });
+				final e:Array<TransactionEntry> = cast this.store.fetchTransaction(r).toArray();
+				e.reverse();
+				e.filter((entry) -> {
+					this.executeEntryInversed(entry);
+					return true;
+				});
+
 				r -= 1;
 			}
 		}
@@ -593,10 +615,10 @@ class Journal extends EventEmitter {
 		var asc = startRev <= end;
 		while (asc?r<end:r>end) {
 			final e = this.store.fetchTransaction(r);
-            Lambda.foreach(e, (entry)->{
-                lines.push(entryToPrettyString(entry));
-                return true;
-            });
+			Lambda.foreach(e, (entry) -> {
+				lines.push(entryToPrettyString(entry));
+				return true;
+			});
 			if (asc)
 				r += 1;
 			else

@@ -11,7 +11,8 @@ using buddy.Should;
 @colorize
 class Graph extends buddy.BuddySuite {
 	public function new() {
-		describe("FBP Graph", {
+		describe("FBP Graph", ()->
+		{
 			describe('with case sensitivity', {
 				describe('Unnamed graph instance', {
 					it('should have an empty name', {
@@ -26,14 +27,14 @@ class Graph extends buddy.BuddySuite {
 					});
 
 					it('should have no nodes initially', {
-						g.nodes.length.should.be(0);
+						g.nodes.size.should.be(0);
 					});
 
 					it('should have no edges initially', {
-						g.edges.length.should.be(0);
+						g.edges.size.should.be(0);
 					});
 					it('should have no initializers initially', {
-						g.initializers.length.should.be(0);
+						g.initializers.size.should.be(0);
 					});
 
 					it('should have no inports initially', {
@@ -57,7 +58,7 @@ class Graph extends buddy.BuddySuite {
 							g.addNode('Foo', 'Bar');
 						});
 						it('should be in graph\'s list of nodes', {
-							g.nodes.length.should.be(1);
+							g.nodes.size.should.be(1);
 							g.nodes.indexOf(n).should.be(0);
 						});
 
@@ -92,7 +93,7 @@ class Graph extends buddy.BuddySuite {
 						it('should not be available after removal', {
 							final node = g.getNode('Foo');
 							node.should.be(null);
-							g.nodes.length.should.be(0);
+							g.nodes.size.should.be(0);
 							g.nodes.indexOf(n).should.be(-1);
 						});
 					});
@@ -110,12 +111,12 @@ class Graph extends buddy.BuddySuite {
 						});
 						it('should add an edge', {
 							g.addEdge('Foo', 'out', 'Bar', 'in2');
-							g.edges.length.should.be(2);
+							g.edges.size.should.be(2);
 						});
 						it('should refuse to add a duplicate edge', {
 							final edge = g.edges[0];
 							g.addEdge(edge.from.node, edge.from.port, edge.to.node, edge.to.port);
-							g.edges.length.should.be(2);
+							g.edges.size.should.be(2);
 						});
 					});
 					describe('New edge with index', {
@@ -126,14 +127,14 @@ class Graph extends buddy.BuddySuite {
 								edge.to.port.should.be('in');
 								edge.to.index.should.be(1);
 								edge.from.index.should.be(null);
-								g.edges.length.should.be(3);
+								g.edges.size.should.be(3);
 								done();
 							});
 							g.addEdgeIndex('Foo', 'out', null, 'Bar', 'in', 1);
 						});
 						it('should add an edge', {
 							g.addEdgeIndex('Foo', 'out', 2, 'Bar', 'in2');
-							g.edges.length.should.be(4);
+							g.edges.size.should.be(4);
 						});
 					});
 				});
@@ -380,7 +381,7 @@ class Graph extends buddy.BuddySuite {
 						});
 					});
 					it('should contain four nodes', {
-						g.nodes.length.should.be(4);
+						g.nodes.size.should.be(4);
 					});
 					it('the first Node should have its metadata intact', {
 						final node = g.getNode('Foo');
@@ -411,7 +412,7 @@ class Graph extends buddy.BuddySuite {
 						g.setNodeMetadata('Foo', {hello: 'World'});
 					});
 					it('should contain two connections', {
-						g.edges.length.should.be(2);
+						g.edges.size.should.be(2);
 					});
 					it('the first Edge should have its metadata intact', {
 						final edge = g.edges[0];
@@ -432,7 +433,7 @@ class Graph extends buddy.BuddySuite {
 						g.setEdgeMetadata(e.from.node, e.from.port, e.to.node, e.to.port, {hello: 'World'});
 					});
 					it('should contain four IIPs', {
-						g.initializers.length.should.be(4);
+						g.initializers.size.should.be(4);
 					});
 					it('should contain one published inport', {
 						g.inports.keys().length.should.be(1);
@@ -447,7 +448,7 @@ class Graph extends buddy.BuddySuite {
 						metadata.y.should.be(505);
 					});
 					it('should contain two groups', {
-						g.groups.length.should.be(2);
+						g.groups.size.should.be(2);
 					});
 					it('should allow modifying group metadata', (done) -> {
 						final group = g.groups[0];
@@ -457,7 +458,8 @@ class Graph extends buddy.BuddySuite {
 							var metadata:Dynamic = grp.metadata;
 							metadata.label.should.be('Main');
 							metadata.foo.should.be('Bar');
-							haxe.Json.stringify(g.groups[1].metadata).should.be("{}");
+							equals.Equal.equals(g.groups[1].metadata, {}).should.be(true);
+							// haxe.Json.stringify(g.groups[1].metadata).should.be("{}");
 
 							done();
 						});
@@ -650,14 +652,14 @@ class Graph extends buddy.BuddySuite {
 					g.addEdge('Split2', 'out', 'Merge2', 'in');
 
 					it('should contain four nodes', {
-						g.nodes.length.should.be(4);
+						g.nodes.size.should.be(4);
 					});
 					it('should contain four edges', {
-						g.edges.length.should.be(4);
+						g.edges.size.should.be(4);
 					});
 					it('should allow a specific edge to be removed', {
 						g.removeEdge('Split1', 'out', 'Merge2', 'in');
-						g.edges.length.should.be(3);
+						g.edges.size.should.be(3);
 					});
 					it('shouldn\'t contain the removed connection from Split1', {
 						var connection = null;
@@ -684,16 +686,21 @@ class Graph extends buddy.BuddySuite {
 					g.addInitial('Foo', 'Split', 'in');
 
 					it('should contain one node', {
-						g.nodes.length.should.be(1);
+						g.nodes.size.should.be(1);
 					});
 					it('should contain no edges', {
-						g.edges.length.should.be(0);
+						g.edges.size.should.be(0);
 					});
 					it('should contain one IIP', {
-						g.initializers.length.should.be(1);
+						g.initializers.size.should.be(1);
 					});
 
-					describe('on removing that IIP', {
+					describe('on removing that IIP', () -> {
+						beforeEach((done)->{
+							haxe.Timer.delay(()->{
+								done();
+							}, 0);
+						});
 						it('should emit a removeInitial event', (done) -> {
 							g.once('removeInitial', (iips) -> {
 								final iip:zenflo.graph.GraphIIP = iips[0];
@@ -704,12 +711,9 @@ class Graph extends buddy.BuddySuite {
 							});
 							g.removeInitial('Split', 'in');
 						});
-						it('should contain no IIPs', (done)-> {
-							// Race condition??
-							Timer.delay(()->{
-								g.initializers.length.should.be(0);
-								done();
-							}, 0);
+						
+						it('should contain no IIPs', () -> {
+							g.initializers.size.should.be(0);
 						});
 					});
 				});
@@ -719,15 +723,20 @@ class Graph extends buddy.BuddySuite {
 					g.addInport('testinport', 'Split', 'in');
 					g.addGraphInitial('Foo', 'testinport');
 
-					it('should contain one node', () -> g.nodes.length.should.be(1));
-					it('should contain no edges', () -> g.edges.length.should.be(0));
+					it('should contain one node', () -> g.nodes.size.should.be(1));
+					it('should contain no edges', () -> g.edges.size.should.be(0));
 					it('should contain one IIP for the correct node', () -> {
-						g.initializers.length.should.be(1);
+						g.initializers.size.should.be(1);
 						g.initializers[0].from.data.should.be('Foo');
 						g.initializers[0].to.node.should.be('Split');
 						g.initializers[0].to.port.should.be('in');
 					});
 					describe('on removing that IIP', {
+						beforeEach((done)->{
+							haxe.Timer.delay(()->{
+								done();
+							}, 0);
+						});
 						it('should emit a removeInitial event', (done) -> {
 							g.once('removeInitial', (vals) -> {
 								final iip:zenflo.graph.GraphIIP = vals[0];
@@ -739,72 +748,73 @@ class Graph extends buddy.BuddySuite {
 							});
 							g.removeGraphInitial('testinport');
 						});
-						it('should contain no IIPs',(done)-> {
-							Timer.delay(()->{
-								g.initializers.length.should.be(0);
-								done();
-							}, 0);
+						it('should contain no IIPs', () -> {
+							g.initializers.size.should.be(0);
 						});
 					});
-			
+
 					describe('on adding IIP for a non-existent inport', {
 						g.addGraphInitial('Bar', 'nonexistent');
-						it('should not add any IIP', () -> g.initializers.length.should.be(0));
+						it('should not add any IIP', () -> g.initializers.size.should.be(0));
 					});
 				});
 
-				describe('with an indexed Inport Initial Information Packet',  {
+				describe('with an indexed Inport Initial Information Packet', {
 					final g = new zenflo.graph.Graph();
 					g.addNode('Split', 'Split');
 					g.addInport('testinport', 'Split', 'in');
 					g.addGraphInitialIndex('Foo', 'testinport', 1);
-					it('should contain one node',  {
-						g.nodes.length.should.be(1);
+		
+					it('should contain one node', {
+						g.nodes.size.should.be(1);
 					});
-					it('should contain no edges',  {
-						Equal.equals(g.edges, []).should.be(true);
+					it('should contain no edges', {
+						g.edges.size.should.be(0);
 					});
-					it('should contain one IIP for the correct node',  {
-						g.initializers.length.should.be(1);
+					it('should contain one IIP for the correct node', {
+						g.initializers.size.should.be(1);
 						g.initializers[0].from.data.should.be('Foo');
 						g.initializers[0].to.node.should.be('Split');
 						g.initializers[0].to.port.should.be('in');
 						g.initializers[0].to.index.should.be(1);
 					});
-					describe('on removing that IIP',  {
-					  it('should emit a removeInitial event', (done) -> {
-						g.once('removeInitial', (iips) -> {
-							final iip:Dynamic = iips[0];
-							iip.from.data.should.be('Foo');
-							iip.to.node.should.be('Split');
-							iip.to.port.should.be('in');
-						  
-						 	done();
+					describe('on removing that IIP', {
+						beforeEach((done)->{
+							haxe.Timer.delay(()->{
+								done();
+							}, 0);
 						});
-						g.removeGraphInitial('testinport');
-					  });
-					  it('should contain no IIPs', (done)-> {
-						Timer.delay(()->{
-							g.initializers.length.should.be(0);
-							done();
-						}, 0);
-					  });
+						it('should emit a removeInitial event', (done) -> {
+							g.once('removeInitial', (iips) -> {
+								final iip:Dynamic = iips[0];
+								iip.from.data.should.be('Foo');
+								iip.to.node.should.be('Split');
+								iip.to.port.should.be('in');
+
+								done();
+							});
+							g.removeGraphInitial('testinport');
+						});
+						it('should contain no IIPs', () -> {
+							// Race condition??
+							g.initializers.size.should.be(0);
+						});
 					});
-					describe('on adding IIP for a non-existent inport',  {
-					  g.addGraphInitialIndex('Bar', 'nonexistent', 1);
-					  it('should not add any IIP', () -> g.initializers.length.should.be(0));
+					describe('on adding IIP for a non-existent inport', {
+						g.addGraphInitialIndex('Bar', 'nonexistent', 1);
+						it('should not add any IIP', () -> g.initializers.size.should.be(0));
 					});
-				  });
+				});
 
 				describe('with no nodes', {
 					final g = new zenflo.graph.Graph();
 					it('should not allow adding edges', {
 						g.addEdge('Foo', 'out', 'Bar', 'in');
-						g.edges.length.should.be(0);
+						g.edges.size.should.be(0);
 					});
 					it('should not allow adding IIPs', {
 						g.addInitial('Hello', 'Bar', 'in');
-						g.initializers.length.should.be(0);
+						g.initializers.size.should.be(0);
 					});
 				});
 			});
@@ -905,6 +915,7 @@ class Graph extends buddy.BuddySuite {
 				});
 			});
 			#end
+			
 		});
 
 		describe('without case sensitivity', {
@@ -925,11 +936,12 @@ class Graph extends buddy.BuddySuite {
 						edge.to.port.should.be('input');
 						edge.from.port.should.be('output');
 
-						g.once('removeEdge', (_)->{
+						g.once('removeEdge', (_) -> {
 							haxe.Timer.delay(()->{
-								equals.Equal.equals(g.edges, []).should.be(true);
+								g.edges.size.should.be(0);
+								done();
 							}, 0);
-							done();
+							
 						});
 
 						g.removeEdge('Foo', 'outPut', 'Bar', 'inPut');
