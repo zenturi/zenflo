@@ -1,10 +1,5 @@
 package zenflo.lib;
 
-import haxe.macro.Expr;
-import tink.macro.Functions.*;
-import tink.macro.Exprs.*;
-import tink.macro.Types.*;
-
 /**
 	## asComponent generator API
 
@@ -22,62 +17,49 @@ import tink.macro.Types.*;
 		});
 	```
 **/
-macro function asComponent(fun:haxe.Constraints.Function, options:ComponentOptions) {
-	var fExpr:Expr = toExpr(fun);
-
-	return switch fExpr.expr {
+#if macro
+macro function asComponent(fun:haxe.macro.Expr, ?options:zenflo.lib.Component.ComponentOptions) {
+	return switch fun.expr {
 		case EFunction(kind, f): {
-				var params = getArgIdents(f);
-				var paramNames:Array<{name:String, options:{}}> = [];
-				for (p in params) {
+				var args = f.args;
+				var paramNames:Array<Dynamic> = [];
+				for (p in args) {
 					final portOptions = {required: true};
+					portOptions.required = !p.opt;
 
-					var pType = typeof(p);
-					switch pType {
-						case Success(data): {
-								var complx = toComplex(data);
-								switch complx {
-									case TOptional(t): {
-											portOptions.required = false;
-										}
-									case _:
-								}
-							}
-						case _:
-					}
-
-					final pName = getName(p);
-					switch pName {
-						case Success(n): {
-								paramNames.push({name: n, options: portOptions});
-							}
-						case _:
-					}
+					final pName = p.name;
+					final v = {name: pName, options: portOptions};
+					paramNames.push(v);
 				}
-				var resIsPromise = false;
+
+				var resIsPromise = macro false;
+
 				switch f.ret {
 					case TPath(p): {
 							var pName = p.name;
 							var pPath = p.pack.join(".");
 
+							trace(pPath);
+
 							if (pPath + "." + pName == "tink.core.tink.core.Promise") {
 								// Result is a tink.core.Promise, resolve and handle
-								resIsPromise = true;
+								resIsPromise = macro true;
 							} else {
-								resIsPromise = false;
+								resIsPromise = macro false;
 							}
 						}
-					case _: resIsPromise = false;
+					case _: resIsPromise = macro false;
 				};
 
-				return macro {
-					var c = new zenflo.lib.Component(options);
+				var body = macro {
+					final pNames = $v{paramNames}; // [for(x in ) {name:${x.name}, options: ${x.options}}];
+					var c = new zenflo.lib.Component($v{options});
 
-					for (p in paramNames) {
+					for (p in pNames) {
 						c.inPorts.add(p.name, p.options);
 						c.forwardBrackets[p.name] = ['out', 'error'];
 					}
-					if (params.length == 0) {
+					if (pNames.length == 0) {
 						c.inPorts.add('in', {datatype: 'bang'});
 					}
 					c.outPorts.add('out');
@@ -85,13 +67,13 @@ macro function asComponent(fun:haxe.Constraints.Function, options:ComponentOptio
 
 					c.process((input, output, _) -> {
 						var values:Array<String> = [];
-						if (paramNames.length != 0) {
-							for (p in paramNames) {
+						if (pNames.length != 0) {
+							for (p in pNames) {
 								if (!input.hasData(p.name)) {
 									return tink.core.Promise.resolve(null);
 								}
 							}
-							values = paramNames.map((p) -> input.getData(p));
+							values = pNames.map((p) -> input.getData(p));
 						} else {
 							if (!input.hasData('in')) {
 								return tink.core.Promise.resolve(null);
@@ -100,37 +82,39 @@ macro function asComponent(fun:haxe.Constraints.Function, options:ComponentOptio
 							values = [];
 						}
 
-						var isPromise = $v{resIsPromise};
-						
+						// var isPromise = ${resIsPromise};
 
-						if (isPromise){
-							var res:tink.core.Promise<Dynamic> = $v{call(fExpr, params)};
-							res.handle((_c)->{
+						// switch values.length
+						var func:Dynamic = ${fun}.bind();
+
+						var res:Dynamic = Reflect.callMethod(func, func, values);
+						if (Type.getClassName(Type.getClass(res)) == "tink.core.FutureTrigger") {
+							res.handle(_c -> {
 								switch _c {
-									case Success(v):{
-										output.sendDone(v);
-									}
-									case Failure(err):{
-										output.done(err);
-									}
+									case tink.core.Outcome.Success(v): {
+											output.sendDone(v);
+										}
+									case tink.core.Outcome.Failure(err): {
+											output.done(err);
+										}
 								}
 							});
 						} else {
-							var res = $v{call(fExpr, params)};
 							output.sendDone(res);
 						}
-					
+
 						return tink.core.Promise.resolve(null);
 					});
 					return c;
 				};
+
+				return body;
 			}
-		case _: macro { throw "unable to generate Component from Function"; };
+		case _: macro {throw "unable to generate Component from Function";};
 	}
 }
+#end
 
-
-
-function asPromise(component:Dynamic, options:Dynamic):tink.core.Promise<Dynamic>{
+function asPromise(component:Dynamic, options:Dynamic):tink.core.Promise<Dynamic> {
 	return null;
 }

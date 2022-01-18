@@ -2,12 +2,15 @@
 
 
 -D analyzer-optimize
-# --dce no
+--dce no
 -D no-deprecation-warnings 
 
+-L hx3compat
+-L RxHaxe
 -L tink_core
 -L polygonal-ds
--L tink_macro
+# -L tink_macro
+# -L haxe-concurrent
 -L cloner
 -L sneaker
 

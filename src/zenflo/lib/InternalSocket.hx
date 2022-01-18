@@ -77,12 +77,18 @@ class InternalSocket extends EventEmitter {
 
 	public function new(?metadata:Dynamic, ?options:InternalSocketOptions) {
 		super();
-		this.metadata = metadata;
+		if(metadata != null){
+			this.metadata = metadata;
+		}
+		
 		this.brackets = [];
 		this.connected = false;
 		this.dataDelegate = null;
-		this.debug = options.debug || false;
-		this.async = options.async || false;
+		if(options != null){
+			this.debug = options.debug || false;
+			this.async = options.async || false;
+		}
+		
 		this.from = null;
 		this.to = null;
 	}
@@ -203,7 +209,7 @@ class InternalSocket extends EventEmitter {
 		this.handleSocketEvent('data', data);
 	}
 
-	public function post(packet:Any, autoDisconnect = true) {
+	public function post(packet:Dynamic, autoDisconnect = true) {
 		var ip = packet;
 		if ((ip == null) && Reflect.isFunction(this.dataDelegate)) {
 			ip = this.dataDelegate();
@@ -309,6 +315,7 @@ class InternalSocket extends EventEmitter {
 
 	public function handleSocketEvent(event:String, ?payload:Dynamic, autoConnect = true) {
 		final isIP = (event == 'ip') && IP.isIP(payload);
+		
 		final ip = isIP ? payload : legacyToIP(event, payload);
 		if (ip == null) {
 			return;
@@ -345,7 +352,6 @@ class InternalSocket extends EventEmitter {
 
 		// Emit the IP Object
 		this.emitEvent('ip', ip);
-
 		// Emit the legacy event
 		if (ip == null || ip.type == null) {
 			return;
@@ -363,6 +369,7 @@ class InternalSocket extends EventEmitter {
 		if (event == 'disconnect') {
 			this.connected = false;
 		}
+		
 		this.emitEvent(event, payload);
 	}
 

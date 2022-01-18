@@ -19,6 +19,7 @@ class InPortOptions extends BaseOptions {
 
 typedef HasValidationCallback = (ip:IP) -> Bool;
 
+@:const
 class InPort extends BasePort {
 	public function new(options:InPortOptions) {
 		final opts = options;
@@ -64,7 +65,7 @@ class InPort extends BasePort {
 		return cast(this.options, InPortOptions).Default != null;
 	}
 
-	public function handleSocketEvent(event:String, payload:InternalSocket, id:Null<Int>) {
+	public function handleSocketEvent(event:String, payload:Dynamic, id:Null<Int>) {
 		// Emit port event
 		if (this.isAddressable()) {
 			return this.emit(event, payload, id);
@@ -188,7 +189,7 @@ class InPort extends BasePort {
 			this.indexedBuffer = new IntMap();
 			return;
 		}
-		if (this.options.scoped) {
+		if (this.options != null && this.options.scoped) {
 			/** @type {Object<string,Array<import("./IP").default>>} */
 			this.scopedBuffer = {};
 		}

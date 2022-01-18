@@ -8,35 +8,23 @@ import tink.core.Error;
 
 using StringTools;
 
-class Ports<T:BasePort> extends EventEmitter {
-	public final model:T;
 
-	public var ports:DynamicAccess<T>;
+class Ports extends EventEmitter {
+	public final model:String;
 
-	public function new(ports:Either<DynamicAccess<T>, DynamicAccess<BaseOptions>>, model:T) {
+	public var ports:DynamicAccess<Dynamic> = new DynamicAccess<Dynamic>();
+
+	public function new(ports:DynamicAccess<Dynamic>, type:String) {
 		super();
-		this.model = model;
-		this.ports = new DynamicAccess<T>();
-		switch ports {
-			case Left(v):
-				{
-					for (name in v.keys()) {
-						final options = v[name];
-						this.add(name, options);
-					}
-				}
-			case Right(v):
-				{
-					for (name in v.keys()) {
-						final options = v[name];
-						this.add(name, options);
-					}
-				}
+		this.model = type;
+		for (name in ports.keys()) {
+			final options = ports[name];
+			this.add(name, options);
 		}
 	}
 
 	public function add(name:String, ?options:Dynamic) {
-		if(options == null) {
+		if (options == null) {
 			options = {};
 		}
 		if ((name == 'add') || (name == 'remove')) {
@@ -59,7 +47,7 @@ class Ports<T:BasePort> extends EventEmitter {
 		if (Std.isOfType(maybePort, BasePort) && maybePort.canAttach != null) {
 			this.ports[name] = cast maybePort;
 		} else {
-			this.ports[name] = Type.createInstance(Type.getClass(model), [options]);
+			this.ports[name] = Type.createInstance(Type.resolveClass(model), [options]);
 		}
 
 		this.emit('add', name);

@@ -4,7 +4,7 @@ editor.hxml
 -m zenflo.spec.Test
 -D HXCPP_M64
 -D buddy-colors
---java bin/Test.jar
+--jvm bin/Test.jar
 
 
 --cmd java -jar  bin/Test.jar

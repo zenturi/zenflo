@@ -14,7 +14,7 @@ import haxe.DynamicAccess;
 import zenflo.lib.ProcessContext.ProcessResult;
 import tink.core.Promise;
 
-typedef ErrorableCallback = (e:Error) -> Void;
+typedef ErrorableCallback = (?e:Error) -> Void;
 
 @:forward
 abstract BracketContext(Dynamic) from Dynamic to Dynamic {
@@ -36,7 +36,7 @@ abstract BracketContext(Dynamic) from Dynamic to Dynamic {
 	}
 }
 
-typedef ProcessingFunction = (input:ProcessInput, output:ProcessOutput, context:ProcessContext) -> Promise<Dynamic>;
+typedef ProcessingFunction = (input:ProcessInput, output:ProcessOutput, ?context:ProcessContext) -> Promise<Dynamic>;
 
 @:structInit
 class ComponentOptions {
@@ -88,8 +88,8 @@ class Component extends EventEmitter {
 	public var bracketContext:BracketContext;
 
 	var componentDebug = new DebugComponent("zenflo:component");
-	var bracketsDebug = new DebugComponent('noflo:component:brackets');
-	var sendDebug = new DebugComponent('noflo:component:send');
+	var bracketsDebug = new DebugComponent('zenflo:component:brackets');
+	var sendDebug = new DebugComponent('zenflo:component:send');
 
 	function debugComponent(msg:String) {
 		componentDebug.Debug(msg);
@@ -450,7 +450,7 @@ class Component extends EventEmitter {
 		if (idx != null) {
 			index = '${idx}';
 		}
-		final portsList:Ports<BasePort> = type == 'in' ? cast this.inPorts : cast this.outPorts;
+		final portsList:Ports = type == 'in' ? cast this.inPorts : cast this.outPorts;
 		if (portsList.ports[name].isAddressable()) {
 			name = '${name}[${index}]';
 		} else {
@@ -577,7 +577,7 @@ class Component extends EventEmitter {
 	**/
 	public function isForwardingInport(port:Dynamic) {
 		var portName:String = null;
-		if (Std.isOfType(port, 'string')) {
+		if (Std.isOfType(port, String)) {
 			portName = port;
 		} else {
 			portName = port.name;
@@ -921,7 +921,7 @@ private class DebugComponent #if !cpp extends sneaker.tag.Tagged #end {
 	#if cpp private var tag:String; #end
 	public function new(tag:String) {
 		#if !cpp super(); #end
-		#if !cpp this.newTag(tag); #end
+		#if !cpp this.tag = new  sneaker.tag.Tag(tag); #end
 		#if cpp this.tag = tag; #end
 	}
 

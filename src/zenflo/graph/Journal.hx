@@ -1,7 +1,5 @@
 package zenflo.graph;
 
-import haxe.CallStack;
-import polygonal.ds.ArrayedQueue;
 #if sys
 import sys.io.File;
 import sys.FileSystem;
@@ -551,7 +549,7 @@ class Journal extends EventEmitter {
 			
 			while (r >= end) {
 				// Apply entries in reverse order
-				final e:Array<TransactionEntry> = cast this.store.fetchTransaction(r).toArray();
+				final e:Array<TransactionEntry> = cast this.store.fetchTransaction(r).toArr();
 				e.reverse();
 				e.filter((entry) -> {
 					this.executeEntryInversed(entry);

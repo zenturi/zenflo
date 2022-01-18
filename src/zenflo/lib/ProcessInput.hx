@@ -120,7 +120,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 		for (i in 0...args.length) {
 			final port:Dynamic = args[i];
 			if (Std.isOfType(port, Array)) {
-				final portImpl = /** @type {import("./InPort").default} */ (this.ports.ports[port[0]]);
+				final portImpl:InPort = /** @type {import("./InPort").default} */ (this.ports.ports[port[0]]);
 				if (portImpl == null) {
 					throw new Error('Node ${this.nodeInstance.nodeId} has no port \'${port[0]}\'');
 				}
@@ -132,7 +132,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 					return false;
 				}
 			} else if (Std.isOfType(port, String)) {
-				final portImpl = /** @type {import("./InPort").default} */ (this.ports.ports[port]);
+				final portImpl:InPort = /** @type {import("./InPort").default} */ (this.ports.ports[port]);
 				if (portImpl == null) {
 					throw new Error('Node ${this.nodeInstance.nodeId} has no port \'${port}\'');
 				}

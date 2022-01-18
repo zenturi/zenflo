@@ -1,14 +1,17 @@
 package zenflo.lib;
 
-enum IPType {
-	DATA;
-	OpenBracket;
-	CloseBracket;
+import haxe.Json;
+import haxe.DynamicAccess;
+
+enum abstract IPType(String) from String to String {
+	final DATA = "data";
+	final OpenBracket = "openBracket";
+	final CloseBracket = "closeBracket";
 }
 
 typedef IPDynamic = {
 	?type:IPType,
-	?data:Any,
+	?data:Dynamic,
 	?isIP:Bool,
 	?scope:String, // sync scope id
     // packet owner process
@@ -19,7 +22,8 @@ typedef IPDynamic = {
 	?index:Int,
 	?schema:Any,
 	?dataType:String,
-	?initial:Bool
+	?initial:Bool,
+	?___cloneData:DynamicAccess<Dynamic>
 }
 
 /**
@@ -73,6 +77,7 @@ abstract IP(IPDynamic) from IPDynamic to IPDynamic {
         };
 
         if(Reflect.isObject(options)){
+			this.___cloneData = options;
             for (_ => value in Reflect.fields(options)) {
                 Reflect.setField(this, value, Reflect.field(options, value));
             }
@@ -84,14 +89,13 @@ abstract IP(IPDynamic) from IPDynamic to IPDynamic {
         Creates a new IP copying its contents by value not reference
     **/
     public function clone():IP {
-        final ip = new IP(this.type);
+        final ip = new IP(this.type, this.data, this.___cloneData);
         for (_=> key in Reflect.fields(this)) {
             final val = Reflect.field(this, key);
             if (key == 'owner') { return ip; }
             if (val == null) { return ip; }
             Reflect.setField(ip, key, val);
         }
-
         return ip;
     }
 

@@ -66,6 +66,7 @@ function handleOptions(options:BaseOptions):BaseOptions {
 	return ret.value;
 }
 
+@:const
 class BasePort extends EventEmitter {
 	public var process:NetworkProcess;
 	public var options:BaseOptions;
@@ -116,17 +117,21 @@ class BasePort extends EventEmitter {
 	}
 
 	public function attach(socket:InternalSocket, ?index:Int) {
+		
 		var idx = /** @type {number} */ (index);
 		if (!this.isAddressable() || (index == null)) {
 			idx = this.sockets.length;
 		}
-
+		
 		this.sockets[idx] = socket;
+		
 		this.attachSocket(socket, idx);
+		
 		if (this.isAddressable()) {
 			this.emit('attach', socket, idx);
 			return;
 		}
+		
 		this.emit('attach', socket);
 	}
 
@@ -146,21 +151,21 @@ class BasePort extends EventEmitter {
 	}
 
 	public function isAddressable() {
-		if (this.options.addressable) {
+		if (this.options != null && this.options.addressable) {
 			return true;
 		}
 		return false;
 	}
 
 	public function isBuffered() {
-		if (this.options.buffered) {
+		if (this.options != null &&this.options.buffered) {
 			return true;
 		}
 		return false;
 	}
 
 	public function isRequired() {
-		if (this.options.required) {
+		if (this.options != null &&this.options.required) {
 			return true;
 		}
 		return false;

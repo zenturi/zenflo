@@ -13,7 +13,7 @@ class RegisterLoader {
     public static var getLanguages:()->Array<String>;
     public static var setSource:(loader:ComponentLoader, packageId:String, name:String, source:String, language:String, callback:ErrorableCallback)->Void;
     public static dynamic function register(loader:ComponentLoader, callback:(err:tink.core.Error)->Void) {
-    
+        
     }
 
     public static dynamic function dynamicLoad(name:String, cpath:String, metadata:Dynamic, callback:(err:tink.core.Error, component:Component)->Void) {

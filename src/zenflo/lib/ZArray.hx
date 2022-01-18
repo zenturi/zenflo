@@ -1,9 +1,11 @@
 package zenflo.lib;
 
 import polygonal.ds.ArrayList;
-
+import haxe.ds.List;
+// using polygonal.ds.tools.NativeArrayTools;
 
 @:forward
+@:arrayAccess
 abstract ZArray<T>(ArrayList<T>) from ArrayList<T> to ArrayList<T> {
     public function new() {
         this = new ArrayList<T>();
@@ -16,8 +18,15 @@ abstract ZArray<T>(ArrayList<T>) from ArrayList<T> to ArrayList<T> {
         return ret;
     }
 
+    @:from
+    public static inline function fromList<T>(a:List<T>):ZArray<T> {
+        var ret = (new ArrayList<T>());
+        for(x in a) ret.add(x);
+        return ret;
+    }
+
     @:to 
-    public function toArr():Array<T> {
+    public inline function toArr():Array<T> {
         return this.toArray();
     }
 

@@ -1,8 +1,16 @@
 editor.hxml
 
+--dce full
+
 -m Main
 
---hl bin/test.hl
+# --hl bin/test.hl
 
 
---cmd hl bin/test.hl
+# --cmd hl bin/test.hl
+
+-D buddy-colors
+--cpp bin/test
+
+
+--cmd bin/test/Main

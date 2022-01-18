@@ -1,4 +1,0 @@
-{
-    "haxelib.executable": "node_modules/.bin/haxelib",
-    "haxe.executable": "node_modules/.bin/haxe"
-}

@@ -1,6 +1,5 @@
 package zenflo.lib;
 
-
 import haxe.DynamicAccess;
 import haxe.ds.Either;
 import zenflo.lib.ProcessContext.ProcessResult;
@@ -12,14 +11,18 @@ function isError(err:Dynamic):Bool {
 
 class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 	public function new(ports:OutPorts, context:ProcessContext) {
-		#if !cpp  super(); #end
+		#if !cpp
+		super();
+		#end
 		this.ports = ports;
 		this.context = context;
 		this.nodeInstance = this.context.nodeInstance;
 		this.ip = this.context.ip;
 		this.result = this.context.result;
 		this.scope = this.context.scope;
-		#if !cpp  this.newTag("zenflo:component"); #end
+		#if !cpp
+		this.newTag("zenflo:component");
+		#end
 	}
 
 	var ports:OutPorts;
@@ -34,8 +37,8 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 
 	var scope:String;
 
-    #if cpp
-	function debug(msg:String){
+	#if cpp
+	function debug(msg:String) {
 		Sys.println('[zenflo:component] => $msg');
 	}
 	#end
@@ -45,11 +48,12 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 	**/
 	public function error(err:Dynamic) {
 		final errs = Std.isOfType(err, Array) ? err : [err];
-		if (this.ports.ports["error"] != null && (this.ports.ports["error"].isAttached() || !this.ports.ports["error"].isRequired())) {
+		final error:OutPort = this.ports.ports["error"];
+		if (error != null && (error.isAttached() || !error.isRequired())) {
 			if (errs.length > 1) {
 				this.sendIP('error', new IP('openBracket'));
 			}
-			for (index => e in errs) {
+			for (e in errs) {
 				this.sendIP('error', e);
 			}
 
@@ -57,7 +61,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 				this.sendIP('error', new IP('closeBracket'));
 			}
 		} else {
-			for (index => e in errs) {
+			for (e in errs) {
 				throw e;
 			}
 		}
@@ -72,12 +76,12 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			ip.scope = this.scope;
 		}
 
-		if (this.nodeInstance.outPorts.ports.exists(port)) {
+		if (!this.nodeInstance.outPorts.ports.exists(port)) {
 			throw new Error('Node ${this.nodeInstance.nodeId} does not have outport ${port}');
 		}
 
 		// eslint-disable-next-line max-len
-		final portImpl = /** @type {import("./OutPort").default} */ (this.nodeInstance.outPorts.ports[port]);
+		final portImpl:OutPort = /** @type {import("./OutPort").default} */ (this.nodeInstance.outPorts.ports[port]);
 
 		if (portImpl.isAddressable() && (ip.index == null)) {
 			throw new Error('Sending packets to addressable port ${this.nodeInstance.nodeId} ${port} requires specifying index');
@@ -109,8 +113,10 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			if ((port != 'error') && (port != 'ports') && (port != '_callbacks')) {
 				componentPorts.push(port);
 			}
-			if (!mapIsInPorts && (output != null) && (Reflect.isObject(output)) && (output.keys().indexOf(port) != -1)) {
-				mapIsInPorts = true;
+			if (output != null) {
+				if (!mapIsInPorts && Reflect.isObject(output) && Reflect.fields(output).indexOf(port) != -1) {
+					mapIsInPorts = true;
+				}
 			}
 		}
 
@@ -123,11 +129,13 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			throw new Error('Port must be specified for sending output');
 		}
 
-		final keys:Array<String> = output.keys();
-		for (port in keys) {
-			final out:DynamicAccess<Dynamic> = output;
-			final packet = out[port];
-			this.sendIP(port, packet);
+		if (output != null) {
+			final keys:Array<String> = Reflect.fields(output);
+			for (port in keys) {
+				final out:DynamicAccess<Dynamic> = output;
+				final packet = out[port];
+				this.sendIP(port, packet);
+			}
 		}
 	}
 
@@ -196,28 +204,34 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			// dangling closeBrackets in buffer since we're the
 			// last running process function.
 
-            final context = this.nodeInstance.bracketContext;
-            final contextIn:DynamicAccess<Dynamic> = Reflect.field(context,"in");
-            for (port in contextIn.keys()) {
-                final contexts:DynamicAccess<Array<ProcessContext>> = contextIn[port];
-                if (contexts[this.scope] != null) { return; }
-                final nodeContext:Array<ProcessContext> = contexts[this.scope];
-                if (nodeContext.length == 0) { return; }
-                final _context:ProcessContext = nodeContext[nodeContext.length - 1];
-                // eslint-disable-next-line max-len
-                final inPorts = /** @type {import("./InPort").default} */ (this.nodeInstance.inPorts.ports[_context.source]);
-                final buf = inPorts.getBuffer(_context.ip.scope, _context.ip.index);
-                while (buf.length > 0 && buf[0].type == CloseBracket) {
-                  final ip = inPorts.get(_context.ip.scope, _context.ip.index);
-                  final ctx = nodeContext.pop();
-                  ctx.closeIp = ip;
-                  if (this.result.__bracketClosingAfter.length == 0) { this.result.__bracketClosingAfter = []; }
-                  this.result.__bracketClosingAfter.push(ctx);
-                }
-            }
+			final context = this.nodeInstance.bracketContext;
+			final contextIn:DynamicAccess<Dynamic> = Reflect.field(context, "in");
+			for (port in contextIn.keys()) {
+				final contexts:DynamicAccess<Array<ProcessContext>> = contextIn[port];
+				if (contexts[this.scope] != null) {
+					return;
+				}
+				final nodeContext:Array<ProcessContext> = contexts[this.scope];
+				if (nodeContext.length == 0) {
+					return;
+				}
+				final _context:ProcessContext = nodeContext[nodeContext.length - 1];
+				// eslint-disable-next-line max-len
+				final inPorts:InPort = /** @type {import("./InPort").default} */ (this.nodeInstance.inPorts.ports[_context.source]);
+				final buf = inPorts.getBuffer(_context.ip.scope, _context.ip.index);
+				while (buf.length > 0 && buf[0].type == CloseBracket) {
+					final ip = inPorts.get(_context.ip.scope, _context.ip.index);
+					final ctx = nodeContext.pop();
+					ctx.closeIp = ip;
+					if (this.result.__bracketClosingAfter.length == 0) {
+						this.result.__bracketClosingAfter = [];
+					}
+					this.result.__bracketClosingAfter.push(ctx);
+				}
+			}
 		}
-        this.debug('${this.nodeInstance.nodeId} finished processing ${this.nodeInstance.load}');
+		this.debug('${this.nodeInstance.nodeId} finished processing ${this.nodeInstance.load}');
 
-        this.nodeInstance.deactivate(this.context);
+		this.nodeInstance.deactivate(this.context);
 	}
 }

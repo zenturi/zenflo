@@ -1,5 +1,6 @@
 package zenflo.graph;
 
+import polygonal.ds.ArrayList;
 import haxe.io.Path;
 #if sys
 import sys.io.File;
@@ -153,7 +154,7 @@ class Graph extends EventEmitter {
 
 	public function new(name:String = "", ?options:GraphOptions) {
 		super();
-		this.setMaxListeners(0);
+		// this.setMaxListeners(0);
 		this.name = name;
 		this.properties = {};
 		this.nodes = new ZArray();
@@ -573,11 +574,13 @@ class Graph extends EventEmitter {
 		// });
 
 		this.setNodeMetadata(id, new GraphNodeMetadata());
+
 		this.nodes = Lambda.filter(this.nodes, (n) -> {
 			if (n != node)
 				return true;
 			return false;
 		});
+		
 		// this.nodes.forEach((n, _)-> n != node ? n : null);
 		// this.nodes = this.nodes.filter((n) -> n != node);
 		this.emit('removeNode', node);
@@ -823,7 +826,7 @@ class Graph extends EventEmitter {
 		final outPort = this.getPortName(port);
 		final inPort = this.getPortName(port2);
 
-		final edge = Lambda.filter(this.edges, (edge) -> {
+		final edges:ZArray<zenflo.graph.GraphEdge> = Lambda.filter(this.edges, (edge) -> {
 			if (edge == null) {
 				return false;
 			}
@@ -831,7 +834,9 @@ class Graph extends EventEmitter {
 				return true;
 			}
 			return false;
-		})[0];
+		});
+
+		final edge = edges[0];
 
 		if (edge == null) {
 			return null;
@@ -993,7 +998,7 @@ class Graph extends EventEmitter {
 	public function removeInitial(node:GraphNodeID, port:String) {
 		final portName = this.getPortName(port);
 		this.checkTransactionStart();
-		this.initializers = Lambda.filter(this.initializers, (iip) -> {
+		this.initializers =  Lambda.filter(this.initializers, (iip) -> {
 			if (iip.to.node == node && iip.to.port == portName) {
 				this.emit('removeInitial', iip);
 				return false;
@@ -1002,34 +1007,6 @@ class Graph extends EventEmitter {
 			return true;
 		});
 
-		// this.initializers = this.initializers.forEach((iip, _)->{
-		// 	if (iip.to.node == node && iip.to.port == portName) {
-		// 		this.emit('removeInitial', iip);
-		// 		return null;
-		// 	}
-
-		// 	return iip;
-		// });
-
-		// this.initializers.filter((iip)->{
-		// 	if (iip.to.node == node && iip.to.port == portName) {
-		// 		// trace('removeInitial', iip);
-		// 		this.emit('removeInitial', iip);
-		// 		return false;
-		// 	}
-		// 	return true;
-		// });
-		// this.initializers = Lambda.filter(this.initializers, (iip) -> {
-		// 	if (iip != null) {
-		// 		if (iip.to.node == node && iip.to.port == portName) {
-		// 			// trace('removeInitial', iip);
-		// 			this.emit('removeInitial', iip);
-		// 			return true;
-		// 		}
-		// 	}
-		// 	return false;
-		// });
-		// trace(port, this.initializers);
 		this.checkTransactionEnd();
 		return this;
 	}

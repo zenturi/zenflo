@@ -46,7 +46,7 @@ typedef ComponentLoadCallback = (err:Error, component:Component) -> Void;
 	`graphs/` folders. For browsers it would attempt to fetch the components from a network.
 **/
 class ComponentLoader {
-	public function new(baseDir:String, options:ComponentLoaderOptions) {
+	public function new(baseDir:String, ?options:ComponentLoaderOptions) {
 		this.baseDir = baseDir;
 		this.options = options;
 		/** @type {ComponentList|null} */
@@ -64,6 +64,7 @@ class ComponentLoader {
 
 	public function listComponents():Promise<ComponentList> {
 		var promise = null;
+		
 		if (this.processing != null) {
 			promise = this.processing;
 		} else if (this.ready && this.components != null) {
@@ -85,6 +86,7 @@ class ComponentLoader {
 
 				return null;
 			});
+			
 			promise = this.processing;
 		}
 		return promise;
@@ -96,20 +98,9 @@ class ComponentLoader {
 		be loaded as an instance of the ZenFlo subgraph
 		component.
 	**/
-	public function load(name:String, meta:Either<GraphNodeMetadata, Function>):Promise<Any> {
-		var metadata = null;
-		var callback = null;
-		switch meta {
-			case Left(v):
-				{
-					metadata = v;
-				}
-			case Right(v):
-				{
-					callback = v;
-				}
-		}
-
+	public function load(name:String, meta:GraphNodeMetadata):Promise<Any> {
+		var metadata = meta;
+		
 		if (!this.ready) {
 			return this.listComponents().next((_) -> this.load(name, meta));
 		}
@@ -306,8 +297,9 @@ class ComponentLoader {
 		a ZenFlo Component constructor or factory method
 		as a component available for loading.
 	**/
-	public function registerComponent(packageId:String, name:String, cPath:Dynamic, callback:ErrorableCallback) {
+	public function registerComponent(packageId:String, name:String, cPath:Dynamic, ?callback:ErrorableCallback) {
 		final fullName = this.normalizeName(packageId, name);
+		trace(fullName);
 		this.components[fullName] = cPath;
 		if (callback != null) {
 			callback(null);
@@ -345,7 +337,7 @@ class ComponentLoader {
 			promise = Promise.reject(new Error('setSource not allowed'));
 		} else {
 			promise = new Promise((resolve, reject) -> {
-				RegisterLoader.setSource(this, packageId, name, source, language, (err:Error) -> {
+				RegisterLoader.setSource(this, packageId, name, source, language, (?err:Error) -> {
 					if (err != null) {
 						reject(err);
 						return;

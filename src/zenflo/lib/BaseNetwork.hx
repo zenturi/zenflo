@@ -335,7 +335,7 @@ class BaseNetwork extends EventEmitter {
 		* As filenames
 	**/
 	public function load(?component:String, ?metadata:GraphNodeMetadata):Promise<Any> {
-		return this.loader.load(component, Either.Left(metadata));
+		return this.loader.load(component, metadata);
 	}
 
 	/**
@@ -369,8 +369,8 @@ class BaseNetwork extends EventEmitter {
 					process.componentName = node.component;
 
 					// Inform the ports of the node name
-					final inPorts:DynamicAccess<InPort> = process.component.inPorts.ports;
-					final outPorts:DynamicAccess<OutPort> = process.component.outPorts.ports;
+					final inPorts:DynamicAccess<InPort> = cast process.component.inPorts.ports;
+					final outPorts:DynamicAccess<OutPort> =cast  process.component.outPorts.ports;
 
 					for (index => name in inPorts.keys()) {
 						final port = inPorts[name];
@@ -473,10 +473,10 @@ class BaseNetwork extends EventEmitter {
 		}
 
 		promise = Promise.resolve(null)
-			.next((_) -> handleAll(this.graph.nodes, this.addNode.bind()))
-			.next((_) -> handleAll(this.graph.edges, this.addEdge.bind()))
-			.next((_) -> handleAll(this.graph.initializers, this.addInitial.bind()))
-			.next((_) -> handleAll(this.graph.nodes, this.addDefaults.bind()))
+			.next((_) -> handleAll(this.graph.nodes.toArray(), this.addNode.bind()))
+			.next((_) -> handleAll(this.graph.edges.toArray(), this.addEdge.bind()))
+			.next((_) -> handleAll(this.graph.initializers.toArray(), this.addInitial.bind()))
+			.next((_) -> handleAll(this.graph.nodes.toArray(), this.addDefaults.bind()))
 			.next((_) -> this);
 		return promise;
 	}

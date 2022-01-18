@@ -1,5 +1,6 @@
 package zenflo.lib;
 
+import haxe.Json;
 import zenflo.lib.IP.IPType;
 import zenflo.lib.IP.IPDynamic;
 import tink.core.Error;
@@ -19,8 +20,8 @@ class OutPortOptions extends BaseOptions {
 class OutPort extends BasePort {
 	public final cache:DynamicAccess<IP>;
 
-	public function new(options:OutPortOptions) {
-		final opts = options;
+	public function new(?options:OutPortOptions) {
+		final opts:OutPortOptions = options != null ? options : {};
 		if (opts.scoped == null) {
 			opts.scoped = true;
 		}

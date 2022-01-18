@@ -8,14 +8,13 @@ import haxe.DynamicAccess;
 
 typedef OutPortsOptions = DynamicAccess<OutPortOptions>;
 
-class OutPorts extends Ports<OutPort> {
+class OutPorts extends Ports {
 	public function new(?_ports:OutPortsOptions) {
         if(_ports == null){
             _ports = new DynamicAccess<OutPortOptions>();
         }
-        var model = new OutPort({});
-        var np = Either.Right(_ports);
-		super(cast np, model);
+      
+        super(_ports, "zenflo.lib.OutPort");
         final basePorts = this.ports;
         this.ports = basePorts;
 	}

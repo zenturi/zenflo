@@ -1,1 +1,14 @@
-{"name":"ZenFlo","version":"0.0.1","scripts":{"haxe":"haxe","neko":"neko","postinstall":"lix download","lix":"lix","haxelib":"haxelib"},"devDependencies":{"lix":"^15.11.4"}}
+{
+    "name": "ZenFlo",
+    "version": "0.0.1",
+    "scripts": {
+        "haxe": "haxe",
+        "neko": "neko",
+        "postinstall": "lix download",
+        "lix": "lix",
+        "haxelib": "haxelib"
+    },
+    "devDependencies": {
+        "lix": "^15.11.6"
+    }
+}

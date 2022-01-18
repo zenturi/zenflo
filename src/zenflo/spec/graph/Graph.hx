@@ -11,8 +11,7 @@ using buddy.Should;
 @colorize
 class Graph extends buddy.BuddySuite {
 	public function new() {
-		describe("FBP Graph", ()->
-		{
+		describe("FBP Graph", () -> {
 			describe('with case sensitivity', {
 				describe('Unnamed graph instance', {
 					it('should have an empty name', {
@@ -47,6 +46,18 @@ class Graph extends buddy.BuddySuite {
 
 					describe('New node', {
 						var n = null;
+						#if !cpp
+						beforeEach((done) -> {
+							haxe.Timer.delay(() -> {
+								done();
+							}, 0);
+						});
+						#else
+						beforeEach((done) -> {
+							Sys.sleep(0.001);
+							done();
+						});
+						#end
 						it('should emit an event', (done) -> {
 							g.once('addNode', (vals) -> {
 								final node:zenflo.graph.GraphNode = vals[0];
@@ -98,6 +109,18 @@ class Graph extends buddy.BuddySuite {
 						});
 					});
 					describe('New edge', {
+						#if !cpp
+						beforeEach((done) -> {
+							haxe.Timer.delay(() -> {
+								done();
+							}, 0);
+						});
+						#else
+						beforeEach((done) -> {
+							Sys.sleep(0.01);
+							done();
+						});
+						#end
 						it('should emit an event', (done) -> {
 							g.addNode('Foo', 'foo');
 							g.addNode('Bar', 'bar');
@@ -107,6 +130,9 @@ class Graph extends buddy.BuddySuite {
 								edge.to.port.should.be('In');
 								done();
 							});
+							#if cpp
+							Sys.sleep(0.001);
+							#end
 							g.addEdge('Foo', 'Out', 'Bar', 'In');
 						});
 						it('should add an edge', {
@@ -120,6 +146,18 @@ class Graph extends buddy.BuddySuite {
 						});
 					});
 					describe('New edge with index', {
+						#if !cpp
+						beforeEach((done) -> {
+							haxe.Timer.delay(() -> {
+								done();
+							}, 0);
+						});
+						#else
+						beforeEach((done) -> {
+							Sys.sleep(0.001);
+							done();
+						});
+						#end
 						it('should emit an event', (done) -> {
 							g.once('addEdge', (edges) -> {
 								final edge:zenflo.graph.GraphEdge = edges[0];
@@ -280,6 +318,20 @@ class Graph extends buddy.BuddySuite {
 
 					final json:GraphJson = haxe.Json.parse(jsonString);
 					var g:zenflo.graph.Graph = null;
+
+					#if !cpp
+					beforeEach((done) -> {
+						haxe.Timer.delay(() -> {
+							done();
+						}, 0);
+					});
+					#else
+					beforeEach((done) -> {
+						Sys.sleep(0.001);
+						done();
+					});
+					#end
+
 					it('should produce a Graph when input is string', {
 						zenflo.graph.Graph.loadJSON(jsonString).handle((c) -> {
 							switch c {
@@ -397,6 +449,18 @@ class Graph extends buddy.BuddySuite {
 						routes.should.contain('one');
 						routes.should.contain('two');
 					});
+					#if !cpp
+					beforeEach((done) -> {
+						haxe.Timer.delay(() -> {
+							done();
+						}, 0);
+					});
+					#else
+					beforeEach((done) -> {
+						Sys.sleep(0.001);
+						done();
+					});
+					#end
 					it('should allow modifying node metadata', (done) -> {
 						g.once('changeNode', (vals) -> {
 							final node:zenflo.graph.GraphNode = vals[0];
@@ -479,6 +543,18 @@ class Graph extends buddy.BuddySuite {
 						g.renameGroup('first', 'renamed');
 					});
 					describe('renaming a node', {
+						#if !cpp
+						beforeEach((done) -> {
+							haxe.Timer.delay(() -> {
+								done();
+							}, 0);
+						});
+						#else
+						beforeEach((done) -> {
+							Sys.sleep(0.001);
+							done();
+						});
+						#end
 						it('should emit an event', (done) -> {
 							g.once('renameNode', (vals) -> {
 								var oldId = vals[0];
@@ -696,11 +772,13 @@ class Graph extends buddy.BuddySuite {
 					});
 
 					describe('on removing that IIP', () -> {
-						beforeEach((done)->{
-							haxe.Timer.delay(()->{
+						#if !cpp
+						beforeEach((done) -> {
+							haxe.Timer.delay(() -> {
 								done();
 							}, 0);
 						});
+						#end
 						it('should emit a removeInitial event', (done) -> {
 							g.once('removeInitial', (iips) -> {
 								final iip:zenflo.graph.GraphIIP = iips[0];
@@ -711,7 +789,7 @@ class Graph extends buddy.BuddySuite {
 							});
 							g.removeInitial('Split', 'in');
 						});
-						
+
 						it('should contain no IIPs', () -> {
 							g.initializers.size.should.be(0);
 						});
@@ -732,8 +810,8 @@ class Graph extends buddy.BuddySuite {
 						g.initializers[0].to.port.should.be('in');
 					});
 					describe('on removing that IIP', {
-						beforeEach((done)->{
-							haxe.Timer.delay(()->{
+						beforeEach((done) -> {
+							haxe.Timer.delay(() -> {
 								done();
 							}, 0);
 						});
@@ -764,7 +842,7 @@ class Graph extends buddy.BuddySuite {
 					g.addNode('Split', 'Split');
 					g.addInport('testinport', 'Split', 'in');
 					g.addGraphInitialIndex('Foo', 'testinport', 1);
-		
+
 					it('should contain one node', {
 						g.nodes.size.should.be(1);
 					});
@@ -779,8 +857,8 @@ class Graph extends buddy.BuddySuite {
 						g.initializers[0].to.index.should.be(1);
 					});
 					describe('on removing that IIP', {
-						beforeEach((done)->{
-							haxe.Timer.delay(()->{
+						beforeEach((done) -> {
+							haxe.Timer.delay(() -> {
 								done();
 							}, 0);
 						});
@@ -915,7 +993,6 @@ class Graph extends buddy.BuddySuite {
 				});
 			});
 			#end
-			
 		});
 
 		describe('without case sensitivity', {
@@ -924,6 +1001,7 @@ class Graph extends buddy.BuddySuite {
 				beforeEach({
 					g = new zenflo.graph.Graph('Hola');
 				});
+
 				it('should have case sensitive property set to false', {
 					g.caseSensitive.should.be(false);
 				});
@@ -936,13 +1014,19 @@ class Graph extends buddy.BuddySuite {
 						edge.to.port.should.be('input');
 						edge.from.port.should.be('output');
 
-						g.once('removeEdge', (_) -> {
-							haxe.Timer.delay(()->{
+						#if !cpp
+						haxe.Timer.delay(() -> {
+							g.once('removeEdge', (_) -> {
 								g.edges.size.should.be(0);
-								done();
-							}, 0);
-							
+							});
+							done();
+						}, 0);
+						#else
+						g.once('removeEdge', (_) -> {
+							g.edges.size.should.be(0);
+							done();
 						});
+						#end
 
 						g.removeEdge('Foo', 'outPut', 'Bar', 'inPut');
 					});

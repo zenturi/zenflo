@@ -123,6 +123,11 @@ DEL Foo(Bar)
 				describe('undo/redo of metadata changes', {
 					final g = new zenflo.graph.Graph();
 					final j = new zenflo.graph.Journal(g);
+					beforeEach((done)->{
+						haxe.Timer.delay(()->{
+							done();
+						}, 0);
+					});
 
 					g.addNode('Foo', 'Bar');
 					g.addNode('Baz', 'Foo');

@@ -6,13 +6,11 @@ import haxe.DynamicAccess;
 
 typedef InPortsOptions = DynamicAccess<InPortOptions>;
 
-class InPorts extends Ports<InPort> {
+class InPorts extends Ports {
     public function new(_ports:InPortsOptions) {
         if(_ports == null){
             ports = {};
         }
-        var nP = Either.Right(_ports);
-        var model = new InPort({});
-        super(cast nP, model);
+        super(_ports, "zenflo.lib.InPort");
     }
 }
