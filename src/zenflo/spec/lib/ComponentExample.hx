@@ -52,9 +52,9 @@ class ComponentExample extends buddy.BuddySuite {
 			});
 
 			beforeEach((done) -> {
-                sout1.removeAllListeners();
-                sout2.removeAllListeners();
-                done();
+				sout1.removeAllListeners();
+				sout2.removeAllListeners();
+				done();
 			});
 
 			it('should not trigger if input is not complete', (done) -> {
@@ -69,29 +69,53 @@ class ComponentExample extends buddy.BuddySuite {
 				sin2.post(new IP(DATA, obj2));
 
 				Timer.delay(done, 10);
-              
 			});
 
 			it('should merge objects when input is complete', (done) -> {
 				sout1.once('ip', (ips) -> {
 					final ip:IP = ips[0];
 					Reflect.isObject(ip).should.be(true);
-                    ip.type.should.be('data');
+					ip.type.should.be('data');
 					Reflect.isObject(ip.data).should.be(true);
-                    if(ip.data != null){
-                        ip.data.name.should.be(obj1.name);
-                        ip.data.title.should.be(obj2.title);
-                        ip.data.age.should.be(obj1.age);
-                    }
-                   
+					if (ip.data != null) {
+						ip.data.name.should.be(obj1.name);
+						ip.data.title.should.be(obj2.title);
+						ip.data.age.should.be(obj1.age);
+					}
+
 					done();
 				});
 				sout2.once('ip', (ips) -> {
-                    final ip:IP = ips[0];
+					final ip:IP = ips[0];
 					done();
 				});
 
 				sin3.post(new IP(DATA, false));
+			});
+
+			it('should obey the overwrite control', (done) -> {
+				sout1.once('ip', (ips) -> {
+					final ip:IP = ips[0];
+					Reflect.isObject(ip).should.be(true);
+					ip.type.should.be('data');
+					Reflect.isObject(ip.data).should.be(true);
+					if (ip.data != null) {
+						ip.data.name.should.be(obj1.name);
+						ip.data.title.should.be(obj2.title);
+						ip.data.age.should.be(obj2.age);
+					}
+
+					done();
+				});
+				sout2.once('ip', (ips) -> {
+					final ip:IP = ips[0];
+
+					done();
+				});
+
+				sin3.post(new IP(DATA, true));
+				sin1.post(new IP(DATA, obj1));
+				sin2.post(new IP(DATA, obj2));
 			});
 		});
 	}

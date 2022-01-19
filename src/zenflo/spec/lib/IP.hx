@@ -8,20 +8,20 @@ class IP extends buddy.BuddySuite {
 		describe('IP object', {
 			it('should create IPs of different types', {
 				final open = new zenflo.lib.IP('openBracket');
-				final data = new zenflo.lib.IP('data', 'Payload');
+				final data = new zenflo.lib.IP(DATA, 'Payload');
 				final close = new zenflo.lib.IP('closeBracket');
 				open.type.should.be('openBracket');
 				close.type.should.be('closeBracket');
 				data.type.should.be('data');
 			});
 			it('should be moved to an owner', {
-				final p = new zenflo.lib.IP('data', 'Token');
+				final p = new zenflo.lib.IP(DATA, 'Token');
 				final someProc = new zenflo.lib.Component();
 				p.move(someProc);
 				p.owner.should.be(someProc);
 			});
 			it('should be able to clone itself', {
-				var d1 = new zenflo.lib.IP('data', 'Trooper', {
+				var d1 = new zenflo.lib.IP(DATA, 'Trooper', {
 					"groups": ['foo', 'bar'],
 					owner: new zenflo.lib.Component(),
 					scope: 'request-12345',
@@ -39,7 +39,7 @@ class IP extends buddy.BuddySuite {
                 d2.scope.should.be(d1.scope);
 			});
             it('should dispose its contents when dropped',  {
-                final p = new zenflo.lib.IP('data', 'Garbage');
+                final p = new zenflo.lib.IP(DATA, 'Garbage');
                 p["groups"] = ['foo', 'bar'];
                 p.drop();
                 Reflect.fields(p).length.should.be(0);
