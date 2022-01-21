@@ -82,7 +82,6 @@ class ComponentExample extends buddy.BuddySuite {
 						ip.data.title.should.be(obj2.title);
 						ip.data.age.should.be(obj1.age);
 					}
-
 					done();
 				});
 				sout2.once('ip', (ips) -> {
@@ -104,7 +103,6 @@ class ComponentExample extends buddy.BuddySuite {
 						ip.data.title.should.be(obj2.title);
 						ip.data.age.should.be(obj2.age);
 					}
-
 					done();
 				});
 				sout2.once('ip', (ips) -> {

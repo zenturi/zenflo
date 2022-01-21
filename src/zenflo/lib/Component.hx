@@ -14,7 +14,7 @@ import haxe.DynamicAccess;
 import zenflo.lib.ProcessContext.ProcessResult;
 import tink.core.Promise;
 
-typedef ErrorableCallback = (?e:Error) -> Void;
+typedef ErrorableCallback = (e:Error) -> Void;
 
 @:forward
 abstract BracketContext(Dynamic) from Dynamic to Dynamic {
@@ -36,7 +36,7 @@ abstract BracketContext(Dynamic) from Dynamic to Dynamic {
 	}
 }
 
-typedef ProcessingFunction = (input:ProcessInput, output:ProcessOutput, ?context:ProcessContext) -> Promise<Dynamic>;
+typedef ProcessingFunction = (input:ProcessInput, output:ProcessOutput, context:ProcessContext) -> Promise<Dynamic>;
 
 @:structInit
 class ComponentOptions {
@@ -917,7 +917,7 @@ class Component extends EventEmitter {
 	}
 }
 
-private class DebugComponent #if !cpp extends sneaker.tag.Tagged #end {
+class DebugComponent #if !cpp extends sneaker.tag.Tagged #end {
 	#if cpp private var tag:String; #end
 	public function new(tag:String) {
 		#if !cpp super(); #end
@@ -927,6 +927,10 @@ private class DebugComponent #if !cpp extends sneaker.tag.Tagged #end {
 
 	public function Debug(message:String) {
 		#if !cpp this.debug(message); #end
+		#if cpp Sys.println('[$tag] => $message'); #end
+	}
+	public function Error(message:String) {
+		#if !cpp this.error(message); #end
 		#if cpp Sys.println('[$tag] => $message'); #end
 	}
 }

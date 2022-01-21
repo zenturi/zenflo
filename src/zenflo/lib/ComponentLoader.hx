@@ -180,8 +180,9 @@ class ComponentLoader {
 
 		// Attempt to create the component instance using the `getComponent` method.
 		var instance:Component = null;
-		final impl:ModuleComponent = /** @type ModuleComponent */ (implementation);
-		if (impl.getComponent != null) {
+		
+		if (Std.isOfType(implementation, ModuleComponent)) {
+			final impl:ModuleComponent = /** @type ModuleComponent */ (implementation);
 			try {
 				instance = impl.getComponent(metadata);
 			} catch (error:Error) {
@@ -299,7 +300,6 @@ class ComponentLoader {
 	**/
 	public function registerComponent(packageId:String, name:String, cPath:Dynamic, ?callback:ErrorableCallback) {
 		final fullName = this.normalizeName(packageId, name);
-		trace(fullName);
 		this.components[fullName] = cPath;
 		if (callback != null) {
 			callback(null);
@@ -392,15 +392,15 @@ class ComponentLoader {
 		return RegisterLoader.getLanguages();
 	}
 
-	var baseDir:String;
+	public var baseDir:String;
 
-	var options:ComponentLoaderOptions;
+	public var options:ComponentLoaderOptions;
 	var libraryIcons:StringMap<String>;
 
 	var components:ComponentList;
 
-	var sourcesForComponents:StringMap<Dynamic>;
-	var specsForComponents:StringMap<String>;
+	public var sourcesForComponents:StringMap<Dynamic>;
+	public var specsForComponents:StringMap<String>;
 
 	var processing:Promise<ComponentList>;
 

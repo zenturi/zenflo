@@ -16,7 +16,7 @@ class RegisterLoader {
         
     }
 
-    public static dynamic function dynamicLoad(name:String, cpath:String, metadata:Dynamic, callback:(err:tink.core.Error, component:Component)->Void) {
+    public static dynamic function dynamicLoad(name:String, cpath:Dynamic, metadata:Dynamic, callback:(err:tink.core.Error, component:Component)->Void) {
     
     }
 

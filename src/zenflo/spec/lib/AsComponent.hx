@@ -29,7 +29,7 @@ class AsComponent extends buddy.BuddySuite {
             //         var func = (?hello) -> 'Hello ${hello}';
             //         it('should be possible to componentize', (done) -> {
             //             #if macro
-            //             final component = () ->  zenflo.lib.Macros.asComponent((?hello:String)->func(hello));
+            //             final component = (_) ->  zenflo.lib.Macros.asComponent((?hello:String)->func(hello), {});
             //             loader.registerComponent('ascomponent', 'sync-one', component, (?e)-> done());
             //             #end
             //         });
