@@ -12,7 +12,7 @@ using StringTools;
 class Ports extends EventEmitter {
 	public final model:String;
 
-	public var ports:DynamicAccess<Dynamic> = new DynamicAccess<Dynamic>();
+	public var ports:DynamicAccess<BasePort> = new DynamicAccess<BasePort>();
 
 	public function new(ports:DynamicAccess<Dynamic>, type:String) {
 		super();
@@ -44,10 +44,16 @@ class Ports extends EventEmitter {
 		}
 
 		final maybePort = /** @type {import("./BasePort").default} */ (options);
+		
 		if (Std.isOfType(maybePort, BasePort) && maybePort.canAttach != null) {
 			this.ports[name] = cast maybePort;
 		} else {
-			this.ports[name] = Type.createInstance(Type.resolveClass(model), [options]);
+			if (model == 'zenflo.lib.InPort'){
+				this.ports[name] = cast new zenflo.lib.InPort(cast options);
+			}
+			if (model == 'zenflo.lib.OutPort'){
+				this.ports[name] = cast new zenflo.lib.OutPort(cast options);
+			}
 		}
 
 		this.emit('add', name);

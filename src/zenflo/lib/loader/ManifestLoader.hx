@@ -1,5 +1,6 @@
 package zenflo.lib.loader;
 
+import zenflo.lib.runtimes.HScriptRuntime;
 import tink.core.Future;
 import tink.core.Noise;
 import tink.core.Noise.Never;
@@ -16,23 +17,24 @@ import haxe.DynamicAccess;
 import zenflo.lib.Component.DebugComponent;
 
 typedef ManifestModule = {
-	name:String,
+	?name:String,
 	?description:String,
-	runtime:String,
-	base:String,
+	?runtime:String,
+	?base:String,
 	?icon:String,
-	components:Array<ManifestComponent>,
+	?components:Array<ManifestComponent>,
 	?zenflo:DynamicAccess<Dynamic>
 }
 
 typedef ManifestComponent = {
 	name:String,
 	?description:String,
+    ?runtime:String,
 	?path:String,
 	?source:String,
 	?tests:String,
 	?exec:String,
-	?elementary:String,
+	?elementary:Bool,
 	?inports:Array<ManifestPort>,
 	?outports:Array<ManifestPort>
 }
@@ -299,78 +301,87 @@ class ManifestLoader {
 			language:String):Promise<Noise> {
 		if (language == "hscript") {
 			return new Promise((resolve, reject) -> {
-				final c = new Component({
-					description: component.description,
-					icon: module.icon
-				});
-
-				for (n in component.inports) {
-					c.inPorts.add(n.name, n);
-				}
-				for (out in component.outports) {
-					c.outPorts.add(out.name, out);
-				}
-
-				final parser = new hscript.Parser();
-				var interp = new hscript.Interp();
-				final exp = parser.parseString(source);
-
-				c.process((input, output, _) -> {
-					var proc = {
-						"input": input,
-						"output": output
-					};
-					interp.variables.set("Process", proc);
-					interp.variables.set("Array", Array);
-					interp.variables.set("DateTools", DateTools);
-					interp.variables.set("Math", Math);
-					interp.variables.set("StringTools", StringTools);
-                    #if sys
-					interp.variables.set("Sys", Sys);
-                    #else
-					interp.variables.set("Xml", Xml);
-                    #if sys
-					interp.variables.set("sys", {
-						"FileSystem": sys.FileSystem,
-						"io": {
-							"File": sys.io.File
-						},
-						"net": {
-							"Host": sys.net.Host
-						}
-					});
-                    #end
-                    interp.variables.set("Json", haxe.Json);
-					interp.variables.set("Http", haxe.Http);
-					interp.variables.set("Serializer", haxe.Serializer);
-					interp.variables.set("Unserializer", haxe.Unserializer);
-                    final log = new DebugComponent('zenflo:{${module.name}/${component.name}}');
-                    interp.variables.set("log", log);
-					interp.execute(exp);
-				});
-
 				loader.sourcesForComponents.set('${module.name}/${component.name}', {
 					source: source,
 					language: language
 				});
-
 				// if(component.tests != null && ) {
 				//     loader.specsForComponents.set('${module.name}/${component.name}', {
 
 				//     });
 				// }
-
-				loader.registerComponent(module.name, component.name, (_) -> c, (err) -> {
-					if (err != null) {
-						reject(err);
-						return;
-					}
-					resolve(Noise);
-				});
-
+				hscriptSourceLoader(loader, module, component, source, resolve, reject);
 				return null;
 			});
 		}
+
 		return Promise.NOISE;
+	}
+
+	function hscriptSourceLoader(loader:ComponentLoader, module:ManifestModule, component:ManifestComponent, source:String, resolve:Noise->Void,
+			reject:Error->Void) {
+		final c = new Component({
+			description: component.description,
+			icon: module.icon
+		});
+
+		for (n in component.inports) {
+			c.inPorts.add(n.name, n);
+		}
+		for (out in component.outports) {
+			c.outPorts.add(out.name, out);
+		}
+
+		final parser = new hscript.Parser();
+		var interp = new hscript.Interp();
+		final exp = parser.parseString(source);
+
+		c.process((input, output, _) -> {
+			var proc = {
+				"input": input,
+				"output": output
+			};
+
+			interp.variables.set("Process", proc);
+			interp.variables.set("Array", Array);
+			interp.variables.set("DateTools", DateTools);
+			interp.variables.set("Math", Math);
+			interp.variables.set("StringTools", StringTools);
+			#if sys
+			interp.variables.set("Sys", Sys);
+			#end
+			interp.variables.set("Xml", Xml);
+			#if sys
+			interp.variables.set("sys", {
+				"FileSystem": sys.FileSystem,
+				"io": {
+					"File": sys.io.File
+				},
+				"net": {
+					"Host": sys.net.Host
+				}
+			});
+			#end
+			interp.variables.set("Json", haxe.Json);
+			interp.variables.set("Http", haxe.Http);
+			interp.variables.set("Serializer", haxe.Serializer);
+			interp.variables.set("Unserializer", haxe.Unserializer);
+			final log = new DebugComponent('zenflo:{${module.name}/${component.name}}');
+			interp.variables.set("log", log);
+
+			for (k => v in HScriptRuntime.variables) {
+				interp.variables.set(k, v);
+			}
+
+			interp.execute(exp);
+		});
+
+		loader.registerComponent(module.name, component.name, (_) -> c, (err) -> {
+			if (err != null) {
+				reject(err);
+				return;
+			}
+			resolve(Noise);
+		});
 	}
 }

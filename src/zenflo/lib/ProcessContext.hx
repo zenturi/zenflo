@@ -39,11 +39,9 @@ typedef TProcessContext = {
 @:forward
 abstract ProcessContext(TProcessContext) from TProcessContext  to Dynamic to TProcessContext {
 	public function new(v:TProcessContext) {
-		this = {
-			activated: false,
-			deactivated: false
-		};
-	
+		this = Reflect.copy(v);
+		this.activated = false;
+		this.deactivated = false;
 		this.scope = this.ip.scope;
 	}
 

@@ -48,7 +48,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 	**/
 	public function error(err:Dynamic) {
 		final errs = Std.isOfType(err, Array) ? err : [err];
-		final error:OutPort = this.ports.ports["error"];
+		final error:OutPort = cast this.ports.ports["error"];
 		if (error != null && (error.isAttached() || !error.isRequired())) {
 			if (errs.length > 1) {
 				this.sendIP('error', new IP('openBracket'));
@@ -81,7 +81,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		}
 
 		// eslint-disable-next-line max-len
-		final portImpl:OutPort = /** @type {import("./OutPort").default} */ (this.nodeInstance.outPorts.ports[port]);
+		final portImpl:OutPort = /** @type {import("./OutPort").default} */ cast (this.nodeInstance.outPorts.ports[port]);
 
 		if (portImpl.isAddressable() && (ip.index == null)) {
 			throw new Error('Sending packets to addressable port ${this.nodeInstance.nodeId} ${port} requires specifying index');
@@ -91,7 +91,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			this.nodeInstance.addToResult(this.result, port, ip);
 			return;
 		}
-		if (!portImpl.options.scoped) {
+		if (portImpl != null && portImpl.options != null &&  !portImpl.options.scoped) {
 			ip.scope = null;
 		}
 		portImpl.sendIP(Either.Left(ip));
@@ -217,7 +217,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 				}
 				final _context:ProcessContext = nodeContext[nodeContext.length - 1];
 				// eslint-disable-next-line max-len
-				final inPorts:InPort = /** @type {import("./InPort").default} */ (this.nodeInstance.inPorts.ports[_context.source]);
+				final inPorts:InPort = /** @type {import("./InPort").default} */ cast (this.nodeInstance.inPorts.ports[_context.source]);
 				final buf = inPorts.getBuffer(_context.ip.scope, _context.ip.index);
 				while (buf.length > 0 && buf[0].type == CloseBracket) {
 					final ip = inPorts.get(_context.ip.scope, _context.ip.index);

@@ -27,7 +27,7 @@ class ComponentExample extends buddy.BuddySuite {
 				title: 'Attorney',
 				age: 33,
 			};
-
+			
 			beforeAll((done) -> {
 				c = getComponent();
 				sin1 = new InternalSocket();
@@ -36,18 +36,27 @@ class ComponentExample extends buddy.BuddySuite {
 				sout1 = new InternalSocket();
 				sout2 = new InternalSocket();
 
-				final _obj1:InPort = c.inPorts.ports["obj1"];
-				_obj1.attach(sin1);
-				final _obj2:InPort = c.inPorts.ports["obj2"];
-				_obj2.attach(sin2);
-				final _overwrite:InPort = c.inPorts.ports["overwrite"];
-				_overwrite.attach(sin3);
+				if(c != null && c.inPorts != null && c.inPorts.ports != null){
+					
+					final _obj1 = c.inPorts.ports["obj1"];
+					if(_obj1 != null) _obj1.attach(sin1);
+				
+					final _obj2 = c.inPorts.ports["obj2"];
+					if(_obj2 != null) _obj2.attach(sin2);
+	
+					final _overwrite = c.inPorts.ports["overwrite"];
+					if(_overwrite != null) _overwrite.attach(sin3);
+				}
 
-				final _result:OutPort = c.outPorts.ports["result"];
-				_result.attach(sout1);
-				final _error:OutPort = c.outPorts.ports["error"];
-				_error.attach(sout2);
+				if(c != null && c.outPorts != null && c.outPorts.ports != null){
+					
+					final _result = c.outPorts.ports["result"];
+					if(_result != null) _result.attach(sout1);
 
+					final _error = c.outPorts.ports["error"];
+					if(_error != null) _error.attach(sout2);
+				}
+				
 				done();
 			});
 
@@ -68,7 +77,14 @@ class ComponentExample extends buddy.BuddySuite {
 				sin1.post(new IP(DATA, obj1));
 				sin2.post(new IP(DATA, obj2));
 
-				Timer.delay(done, 10);
+				#if !cpp
+				Timer.delay(()->{
+					done();
+				}, 10);
+				#else 
+				Sys.sleep(0.01);
+				done();
+				#end
 			});
 
 			it('should merge objects when input is complete', (done) -> {

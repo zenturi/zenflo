@@ -7,5 +7,6 @@ class Test implements Buddy<[
     // zenflo.spec.graph.Journal,
     // zenflo.spec.lib.AsComponent
     zenflo.spec.lib.IP,
-    zenflo.spec.lib.ComponentExample
+    zenflo.spec.lib.ComponentExample,
+    zenflo.spec.lib.Inport,
 ]> {}

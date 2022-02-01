@@ -5,6 +5,8 @@
 --dce no
 -D no-deprecation-warnings 
 
+
+-D js-es=6
 -L hx3compat
 -L RxHaxe
 -L tink_core

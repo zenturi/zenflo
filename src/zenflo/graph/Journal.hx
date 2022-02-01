@@ -133,8 +133,9 @@ class Journal extends EventEmitter {
 				this.appendCommand('addEdge', edge);
 			});
 
-			this.graph.initializers.iter((iip) -> {
+			this.graph.initializers.map((iip) -> {
 				this.appendCommand('addInitial', iip);
+				return iip;
 			});
 
 			if (this.graph.properties.keys().length > 0) {
@@ -228,21 +229,21 @@ class Journal extends EventEmitter {
 			});
 		});
 		this.graph.on('removeGroup', (group) -> this.appendCommand('removeGroup', group[0]));
-		this.graph.on('changeGroup', (vals:Rest<Dynamic>) -> {
+		this.graph.on('changeGroup', (vals:Array<Dynamic>) -> {
 			this.appendCommand('changeGroup', {name: vals[0].name, "new": vals[0].metadata, old: vals[1]});
 		});
 
 		this.graph.on('addExport', (exported) -> this.appendCommand('addExport', exported[0]));
 		this.graph.on('removeExport', (exported) -> this.appendCommand('removeExport', exported[0]));
 
-		this.graph.on('addInport', (vals:Rest<Dynamic>) -> this.appendCommand('addInport', {name: vals[0], port: vals[1]}));
-		this.graph.on('removeInport', (vals:Rest<Dynamic>) -> this.appendCommand('removeInport', {name: vals[0], port: vals[1]}));
-		this.graph.on('renameInport', (vals:Rest<Dynamic>) -> this.appendCommand('renameInport', {oldId: vals[0], newId: vals[1]}));
-		this.graph.on('changeInport', (vals:Rest<Dynamic>) -> this.appendCommand('changeInport', {name: vals[0], "new": vals[1].metadata, old: vals[2]}));
-		this.graph.on('addOutport', (vals:Rest<Dynamic>) -> this.appendCommand('addOutport', {name: vals[0], port: vals[1]}));
-		this.graph.on('removeOutport', (vals:Rest<Dynamic>) -> this.appendCommand('removeOutport', {name: vals[0], port: vals[1]}));
-		this.graph.on('renameOutport', (vals:Rest<Dynamic>) -> this.appendCommand('renameOutport', {oldId: vals[0], newId: vals[1]}));
-		this.graph.on('changeOutport', (vals:Rest<Dynamic>) -> this.appendCommand('changeOutport', {name: vals[0], "new": vals[1].metadata, old: vals[2]}));
+		this.graph.on('addInport', (vals:Array<Dynamic>) -> this.appendCommand('addInport', {name: vals[0], port: vals[1]}));
+		this.graph.on('removeInport', (vals:Array<Dynamic>) -> this.appendCommand('removeInport', {name: vals[0], port: vals[1]}));
+		this.graph.on('renameInport', (vals:Array<Dynamic>) -> this.appendCommand('renameInport', {oldId: vals[0], newId: vals[1]}));
+		this.graph.on('changeInport', (vals:Array<Dynamic>) -> this.appendCommand('changeInport', {name: vals[0], "new": vals[1].metadata, old: vals[2]}));
+		this.graph.on('addOutport', (vals:Array<Dynamic>) -> this.appendCommand('addOutport', {name: vals[0], port: vals[1]}));
+		this.graph.on('removeOutport', (vals:Array<Dynamic>) -> this.appendCommand('removeOutport', {name: vals[0], port: vals[1]}));
+		this.graph.on('renameOutport', (vals:Array<Dynamic>) -> this.appendCommand('renameOutport', {oldId: vals[0], newId: vals[1]}));
+		this.graph.on('changeOutport', (vals:Array<Dynamic>) -> this.appendCommand('changeOutport', {name: vals[0], "new": vals[1].metadata, old: vals[2]}));
 
 		this.graph.on('startTransaction', (vals) -> {
 			// id, meta

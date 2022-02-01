@@ -9,11 +9,9 @@ class AsComponent extends buddy.BuddySuite {
     public function new() {
         describe('asComponent interface', {
             var loader:ComponentLoader = null;
-            trace("HERE");
             beforeAll((done)->{
                 loader = new ComponentLoader("./");
                 loader.listComponents().handle((cb)->{
-                    trace("HERE");
                     switch cb {
                         case Success(data):{
                             done();

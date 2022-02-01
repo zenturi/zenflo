@@ -7,10 +7,10 @@ import haxe.DynamicAccess;
 typedef InPortsOptions = DynamicAccess<InPortOptions>;
 
 class InPorts extends Ports {
-    public function new(_ports:InPortsOptions) {
+    public function new(?_ports:InPortsOptions) {
         if(_ports == null){
             ports = {};
         }
-        super(_ports, "zenflo.lib.InPort");
+        super(cast _ports, "zenflo.lib.InPort");
     }
 }

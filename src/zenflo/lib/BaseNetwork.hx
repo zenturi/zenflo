@@ -475,7 +475,7 @@ class BaseNetwork extends EventEmitter {
 		promise = Promise.resolve(null)
 			.next((_) -> handleAll(this.graph.nodes.toArray(), this.addNode.bind()))
 			.next((_) -> handleAll(this.graph.edges.toArray(), this.addEdge.bind()))
-			.next((_) -> handleAll(this.graph.initializers.toArray(), this.addInitial.bind()))
+			.next((_) -> handleAll(this.graph.initializers, this.addInitial.bind()))
 			.next((_) -> handleAll(this.graph.nodes.toArray(), this.addDefaults.bind()))
 			.next((_) -> this);
 		return promise;
@@ -595,7 +595,7 @@ class BaseNetwork extends EventEmitter {
 	public function addDefaults(node:GraphNode, options:Dynamic):Promise<Any> {
 		return this.ensureNode(node.id, 'inbound').next((process) -> Promise.inParallel(process.component.inPorts.ports.keys().map((key) -> {
 			// Attach a socket to any defaulted inPorts as long as they aren't already attached.
-			final port = process.component.inPorts.ports[key];
+			final port:InPort = cast process.component.inPorts.ports[key];
 			if (!port.hasDefault() || port.isAttached()) {
 				return Promise.resolve(0);
 			}

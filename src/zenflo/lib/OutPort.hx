@@ -8,14 +8,7 @@ import haxe.DynamicAccess;
 import zenflo.lib.BasePort.BaseOptions;
 import haxe.ds.Either;
 
-/**
-	Outport Port (outport) implementation for ZenFlo components.
-	These ports are the way a component sends Information Packets.
-**/
-@:structInit
-class OutPortOptions extends BaseOptions {
-	public var caching:Null<Bool> = null;
-}
+
 
 class OutPort extends BasePort {
 	public final cache:DynamicAccess<IP>;
@@ -28,7 +21,7 @@ class OutPort extends BasePort {
 		if (opts.caching == null) {
 			opts.caching = false;
 		}
-		super(opts);
+		super({});
 
 		final baseOptions = this.options;
 		this.options = /** @type {PortOptions} */ (baseOptions);
@@ -78,7 +71,8 @@ class OutPort extends BasePort {
 	}
 
 	public function isCaching() {
-		if (cast(this.options, OutPortOptions).caching) {
+		final op:Dynamic = this.options;
+		if (op != null && op.caching) {
 			return true;
 		}
 		return false;
@@ -195,3 +189,5 @@ class OutPort extends BasePort {
 
 	public function closeBracket(group:String, arg1:IP) {}
 }
+
+

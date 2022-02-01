@@ -1,5 +1,6 @@
 package zenflo.graph;
 
+import haxe.Timer;
 import polygonal.ds.ArrayList;
 import haxe.io.Path;
 #if sys
@@ -140,7 +141,7 @@ class Graph extends EventEmitter {
 
 	public var edges:ZArray<GraphEdge>;
 
-	public var initializers:ZArray<GraphIIP>;
+	public var initializers:Array<GraphIIP>;
 
 	public var groups:ZArray<GraphGroup>;
 
@@ -159,7 +160,7 @@ class Graph extends EventEmitter {
 		this.properties = {};
 		this.nodes = new ZArray();
 		this.edges = new ZArray();
-		this.initializers = new ZArray();
+		this.initializers = new Array();
 		this.inports = {};
 		this.outports = {};
 		this.groups = new ZArray();
@@ -506,29 +507,22 @@ class Graph extends EventEmitter {
 		}
 
 		this.checkTransactionStart();
-		this.edges.iter((edge) -> {
-			if ((edge.from.node == node.id) || (edge.to.node == node.id)) {
-				this.removeEdge(edge.from.node, edge.from.port, edge.to.node, edge.to.port);
-			}
-		});
-		// Lambda.foreach(this.edges, (edge) -> {
-		// 	if ((edge.from.node == node.id) || (edge.to.node == node.id)) {
-		// 		this.removeEdge(edge.from.node, edge.from.port, edge.to.node, edge.to.port);
-		// 	}
-		// 	return true;
-		// });
-		this.initializers.iter((initializer) -> {
-			if (initializer.to.node == node.id) {
-				this.removeInitial(initializer.to.node, initializer.to.port);
-			}
-		});
-		// Lambda.foreach(this.initializers, (initializer) -> {
-		// 	if (initializer.to.node == node.id) {
-		// 		this.removeInitial(initializer.to.node, initializer.to.port);
-		// 	}
-		// 	return true;
-		// });
 
+		this.edges.iter((edge)->{
+			if (edge != null) {
+				if ((edge.from.node == node.id) || (edge.to.node == node.id)) {
+					this.removeEdge(edge.from.node, edge.from.port, edge.to.node, edge.to.port);
+				}
+			}
+		});
+
+		for(iip in this.initializers){
+			if (iip != null && iip.to != null && iip.to.node == node.id) {
+				this.removeInitial(iip.to.node, iip.to.port);
+			}
+		}
+		
+	
 		Lambda.foreach(this.inports.keys(), (pub) -> {
 			final priv = this.inports[pub];
 			if (priv.process == id) {
@@ -557,21 +551,7 @@ class Graph extends EventEmitter {
 				this.removeGroup(group.name);
 			}
 		});
-		// Lambda.foreach(this.groups, (group) -> {
-		// 	if (group == null) {
-		// 		return true;
-		// 	}
-		// 	final index = group.nodes.indexOf(id);
-		// 	if (index == -1) {
-		// 		return true;
-		// 	}
-		// 	group.nodes.splice(index, 1);
-		// 	if (group.nodes.length == 0) {
-		// 		// Don't leave empty groups behind
-		// 		this.removeGroup(group.name);
-		// 	}
-		// 	return true;
-		// });
+	
 
 		this.setNodeMetadata(id, new GraphNodeMetadata());
 
@@ -580,9 +560,9 @@ class Graph extends EventEmitter {
 				return true;
 			return false;
 		});
+
 		
-		// this.nodes.forEach((n, _)-> n != node ? n : null);
-		// this.nodes = this.nodes.filter((n) -> n != node);
+		
 		this.emit('removeNode', node);
 
 		this.checkTransactionEnd();
@@ -794,21 +774,23 @@ class Graph extends EventEmitter {
 		final outPort = this.getPortName(port);
 		final inPort = this.getPortName(port2);
 
-		this.edges = Lambda.filter(this.edges, (edge) -> {
+	
+
+		for (i in 0...this.edges.size) {
+			final edge = this.edges[i];
+			if (edge == null)
+				continue;
 			if (node2 != null && inPort != null) {
 				if ((edge.from.node == node) && (edge.from.port == outPort) && (edge.to.node == node2) && (edge.to.port == inPort)) {
 					this.setEdgeMetadata(edge.from.node, edge.from.port, edge.to.node, edge.to.port, {});
-					this.emit('removeEdge', edge);
-					return false;
+					this.emit('removeEdge', this.edges.removeAt(i));
 				}
 			} else if (((edge.from.node == node) && (edge.from.port == outPort))
 				|| ((edge.to.node == node) && (edge.to.port == outPort))) {
 				this.setEdgeMetadata(edge.from.node, edge.from.port, edge.to.node, edge.to.port, {});
-				this.emit('removeEdge', edge);
-				return false;
+				this.emit('removeEdge', this.edges.removeAt(i));
 			}
-			return true;
-		});
+		}
 
 		this.checkTransactionEnd();
 		return this;
@@ -861,7 +843,7 @@ class Graph extends EventEmitter {
 		}
 		final before = edge.metadata.copy();
 
-		for(item in metadata.keys()){
+		for (item in metadata.keys()) {
 			final val = metadata[item];
 			if (edge.metadata == null) {
 				edge.metadata = {};
@@ -873,7 +855,6 @@ class Graph extends EventEmitter {
 			}
 		}
 
-	
 		this.emit('changeEdge', edge, before, metadata);
 		this.checkTransactionEnd();
 		return this;
@@ -971,6 +952,7 @@ class Graph extends EventEmitter {
 	public function addGraphInitialIndex(data:Any, node:String, index:Int, ?metadata:GraphIIPMetadata):Graph {
 		if (metadata == null)
 			metadata = {};
+		
 		final inport = this.inports[node];
 		if (inport == null) {
 			return this;
@@ -998,15 +980,16 @@ class Graph extends EventEmitter {
 	public function removeInitial(node:GraphNodeID, port:String) {
 		final portName = this.getPortName(port);
 		this.checkTransactionStart();
-		this.initializers =  Lambda.filter(this.initializers, (iip) -> {
-			if (iip.to.node == node && iip.to.port == portName) {
+
+
+		this.initializers = this.initializers.filter((iip)->{
+			if (iip != null && iip.to != null && iip.to.node == node && iip.to.port == portName) {
 				this.emit('removeInitial', iip);
 				return false;
 			}
-
 			return true;
 		});
-
+		
 		this.checkTransactionEnd();
 		return this;
 	}
@@ -1118,18 +1101,33 @@ class Graph extends EventEmitter {
 				dot += '    ${wrapQuotes(node.id)} [label=${wrapQuotes(node.id)} shape=box]\n';
 			}
 		})();
-		this.initializers.forEach((initializer, id) -> {
-			var data = null;
-			if (Reflect.isFunction(initializer.from.data)) {
-				data = 'Function';
-			} else {
-				data = Json.stringify(initializer.from.data);
-			}
-			dot += '    data${id} [label=${wrapQuotes(data)} shape=plaintext]\n';
-			dot += '    data${id} -> ${wrapQuotes(initializer.to.node)}[headlabel=${cleanPort(initializer.to.port)} labelfontcolor=blue labelfontsize=8.0]\n';
+		(()->{
+			for(id in 0...this.initializers.length){
+				final initializer = this.initializers[id];
+				var data = null;
+				if (Reflect.isFunction(initializer.from.data)) {
+					data = 'Function';
+				} else {
+					data = Json.stringify(initializer.from.data);
+				}
+				dot += '    data${id} [label=${wrapQuotes(data)} shape=plaintext]\n';
+				dot += '    data${id} -> ${wrapQuotes(initializer.to.node)}[headlabel=${cleanPort(initializer.to.port)} labelfontcolor=blue labelfontsize=8.0]\n';
 
-			return initializer;
-		});
+				// return initializer;
+			}
+		})();
+		// this.initializers.forEach((initializer, id) -> {
+		// 	var data = null;
+		// 	if (Reflect.isFunction(initializer.from.data)) {
+		// 		data = 'Function';
+		// 	} else {
+		// 		data = Json.stringify(initializer.from.data);
+		// 	}
+		// 	dot += '    data${id} [label=${wrapQuotes(data)} shape=plaintext]\n';
+		// 	dot += '    data${id} -> ${wrapQuotes(initializer.to.node)}[headlabel=${cleanPort(initializer.to.port)} labelfontcolor=blue labelfontsize=8.0]\n';
+
+		// 	return initializer;
+		// });
 
 		(() -> {
 			for (edge in this.edges) {
@@ -1217,10 +1215,10 @@ class Graph extends EventEmitter {
 				}
 			};
 
-			if(edge.from != null && edge.from.index != null){
+			if (edge.from != null && edge.from.index != null) {
 				connection.src.index = edge.from.index;
 			}
-			if(edge.to != null && edge.to.index != null){
+			if (edge.to != null && edge.to.index != null) {
 				connection.tgt.index = edge.to.index;
 			}
 
@@ -1244,7 +1242,7 @@ class Graph extends EventEmitter {
 					port: initializer.to.port
 				},
 			};
-			if(initializer.to != null && initializer.to.index != null){
+			if (initializer.to != null && initializer.to.index != null) {
 				iip.tgt.index = initializer.to.index;
 			}
 			if (initializer.metadata != null && initializer.metadata.keys().length != 0) {

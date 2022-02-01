@@ -9,33 +9,35 @@ import haxe.ds.IntMap;
 	Input Port (inport) implementation for ZenFlo components. These
 	ports are the way a component receives Information Packets.
 **/
-@:structInit
-class InPortOptions extends BaseOptions {
-	public var Default:Null<Any> = null;
-	public var values:Array<Any> = null;
-	public var control:Null<Bool> = null;
-	public var triggering:Null<Bool> = null;
+typedef InPortOptions = {
+	> BaseOptions,
+	@:optional var Default:Null<Any>;
+	@:optional var values:Array<Any>;
+	@:optional var control:Null<Bool>;
+	@:optional var triggering:Null<Bool>;
 }
 
 typedef HasValidationCallback = (ip:IP) -> Bool;
 
 @:const
 class InPort extends BasePort {
-	public function new(options:InPortOptions) {
+	public function new(?options:InPortOptions) {
 		final opts = options;
-		if (opts.control == null) {
-			opts.control = false;
+		if(opts != null){
+			if (opts.control == null) {
+				opts.control = false;
+			}
+			if (opts.scoped == null) {
+				opts.scoped = true;
+			}
+			if (opts.triggering == null) {
+				opts.triggering = true;
+			}
 		}
-		if (opts.scoped == null) {
-			opts.scoped = true;
-		}
-		if (opts.triggering == null) {
-			opts.triggering = true;
-		}
-
+		
 		super(opts);
 
-		final baseOptions = this.options;
+		final baseOptions = options;
 		this.options = /** @type {PortOptions} */ (baseOptions);
 
 		/** @type {import("./Component").Component|null} */
@@ -46,10 +48,13 @@ class InPort extends BasePort {
 
 	override public function attachSocket(socket:InternalSocket, ?localId:Int) {
 		// have a default value.
+		
 		if (this.hasDefault()) {
-			socket.setDataDelegate(() -> cast(this.options, InPortOptions).Default);
+			final ops:Dynamic = this.options;
+			socket.setDataDelegate(() -> ops.Default);
 		}
-
+		
+	
 		socket.on('connect', (_) -> this.handleSocketEvent('connect', socket, localId));
 		socket.on('begingroup', (group) -> this.handleSocketEvent('begingroup', group[0], localId));
 		socket.on('data', (data) -> {
@@ -58,11 +63,15 @@ class InPort extends BasePort {
 		});
 		socket.on('endgroup', (group) -> this.handleSocketEvent('endgroup', group[0], localId));
 		socket.on('disconnect', (_) -> this.handleSocketEvent('disconnect', socket, localId));
-		socket.on('ip', (ip) -> this.handleIP(ip[0], localId));
+		
+		socket.on('ip', (ip) -> {
+			this.handleIP(ip[0], localId);
+		});
 	}
 
 	public function hasDefault():Bool {
-		return cast(this.options, InPortOptions).Default != null;
+		final op:Dynamic = this.options;
+		return op != null && op.Default != null;
 	}
 
 	public function handleSocketEvent(event:String, payload:Dynamic, id:Null<Int>) {
@@ -74,18 +83,25 @@ class InPort extends BasePort {
 	}
 
 	function validateData(data:Any) {
-		if (cast(this.options, InPortOptions).values == null) {
+		final op:Dynamic = this.options;
+		if (op != null && op.values == null) {
 			return;
 		}
-		if (cast(this.options, InPortOptions).values.indexOf(data) == -1) {
-			throw new Error('Invalid data=\'${data}\' received, not in [${cast (this.options, InPortOptions).values}]');
+		var values = [];
+		if (op != null){
+			values = op.values;
+		}
+		if (op != null && values.indexOf(data) == -1) {
+			throw new Error('Invalid data=\'${data}\' received, not in [${op.values}]');
 		}
 	}
 
 	public function handleIP(packet:IP, ?index:Int) {
-		if (cast(this.options, InPortOptions).control && (packet.type != DATA)) {
+		final op:Dynamic = this.options;
+		if (op != null && op.control && (packet.type != DATA)) {
 			return;
 		}
+		
 		final ip = packet;
 		ip.owner = this.nodeInstance;
 		if (this.isAddressable()) {
@@ -102,7 +118,7 @@ class InPort extends BasePort {
 
 		final buf = this.prepareBufferForIP(ip);
 		buf.push(ip);
-		if (cast(this.options, InPortOptions).control && (buf.length > 1)) {
+		if (op != null && op.control && (buf.length > 1)) {
 			buf.shift();
 		}
 
@@ -204,7 +220,9 @@ class InPort extends BasePort {
 		if (!(buf != null || buf.length != 0)) {
 			return null;
 		}
-		if (cast(this.options, InPortOptions).control) {
+		final op:Dynamic = this.options;
+
+		if (op != null && op.control != null && op.control) {
 			return buf[buf.length - 1];
 		}
 		return buf.shift();
@@ -250,6 +268,7 @@ class InPort extends BasePort {
 	 * @param {HasValidationCallback} [validate]
 	 */
 	public function has(scope:String, index:Dynamic, ?validate:HasValidationCallback) {
+		
 		var valid = validate;
 
 		/** @type {number|null} */
@@ -261,10 +280,15 @@ class InPort extends BasePort {
 		} else {
 			idx = index;
 		}
-		if (this.hasIPinBuffer(scope, idx, valid)) {
+		
+		final checkBuf = this.hasIPinBuffer(scope, idx, valid);
+		// trace("checkBuf ", checkBuf);
+		if (checkBuf) {
 			return true;
 		}
-		if (this.hasIIP(idx, valid)) {
+		final checkIIP =  this.hasIIP(idx, valid);
+		// trace("checkIIP ", checkIIP);
+		if (checkIIP) {
 			return true;
 		}
 		return false;

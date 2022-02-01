@@ -67,9 +67,9 @@ class InternalSocket extends EventEmitter {
 
 	public var dataDelegate:Dynamic;
 
-	public var debug:Bool;
+	public var debug:Bool = false;
 
-	public var async:Bool;
+	public var async:Bool = false;
 
 	public var from:Link;
 
@@ -211,6 +211,7 @@ class InternalSocket extends EventEmitter {
 
 	public function post(packet:Dynamic, autoDisconnect = true) {
 		var ip = packet;
+
 		if ((ip == null) && Reflect.isFunction(this.dataDelegate)) {
 			ip = this.dataDelegate();
 		}
@@ -356,7 +357,7 @@ class InternalSocket extends EventEmitter {
 		if (ip == null || ip.type == null) {
 			return;
 		}
-
+		
 		if (isIP) {
 			final legacy = ipToLegacy(ip);
 			event = legacy.event;
@@ -369,7 +370,6 @@ class InternalSocket extends EventEmitter {
 		if (event == 'disconnect') {
 			this.connected = false;
 		}
-		
 		this.emitEvent(event, payload);
 	}
 

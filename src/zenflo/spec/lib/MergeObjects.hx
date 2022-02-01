@@ -33,10 +33,13 @@ function getComponent() {
 		}),
 	});
 
-    return c.process((input:ProcessInput, output:ProcessOutput, ?context)->{
+	
+
+    return c.process((input:ProcessInput, output:ProcessOutput, _)->{
         var dst = null;
         var src  = null;
-        if (!input.has('obj1', 'obj2', 'overwrite')) { return Promise.NEVER; }
+		final check = input.has('obj1', 'obj2', 'overwrite');
+        if (check == false) { return null; }
         final v:Array<Any> = input.getData('obj1', 'obj2', 'overwrite');
         final obj1 = v[0];
         final obj2 = v[1];
@@ -46,14 +49,15 @@ function getComponent() {
             dst = Json.parse(Json.stringify(overwrite  ? obj2 : obj1));
         }catch(e){
             output.done(e);
-            return Promise.NEVER;
+            return null;
         }
 
         for (key in Reflect.fields(dst)){
             final val = Reflect.field(dst, key);
             Reflect.setField(src, key, val); 
         }
+		input.activate();
         output.sendDone({ result: src });
-        return Promise.NEVER;
+        return null;
     });
 }

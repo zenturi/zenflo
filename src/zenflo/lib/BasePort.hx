@@ -15,16 +15,15 @@ final validTypes = [
 /**
 	Options for configuring all types of ports
 **/
-@:structInit
-class BaseOptions {
-	public var description:Null<String> = null;
-	public var addressable:Null<Bool> = false;
-	public var buffered:Null<Bool> = false;
-	public var dataType:Null<String> = null;
-	public var schema:Null<String> = null;
-	public var type:Null<String> = null;
-	public var required:Null<Bool> = false;
-	public var scoped:Null<Bool> = false;
+typedef BaseOptions = {
+	@:optional var description:Null<String>;
+	@:optional var addressable:Null<Bool>;
+	@:optional var buffered:Null<Bool>;
+	@:optional var dataType:Null<String>;
+	@:optional var schema:Null<String>;
+	@:optional var type:Null<String>;
+	@:optional var required:Null<Bool>;
+	@:optional var scoped:Null<Bool>;
 }
 
 function handleOptions(options:BaseOptions):BaseOptions {
@@ -57,13 +56,16 @@ function handleOptions(options:BaseOptions):BaseOptions {
 	// Description
 	final description = options.description != null ? options.description : '';
 
-	final ret:Ref<BaseOptions> = options;
-	ret.value.description = description;
-	ret.value.dataType = datatype;
-	ret.value.required = required;
-	ret.value.schema = schema;
-	ret.value.scoped = scoped;
-	return ret.value;
+	final ret:BaseOptions = Reflect.copy(options);
+	if (ret != null) {
+		ret.description = description;
+		ret.dataType = datatype;
+		ret.required = required;
+		ret.schema = schema;
+		ret.scoped = scoped;
+	}
+
+	return ret;
 }
 
 @:const
@@ -79,10 +81,12 @@ class BasePort extends EventEmitter {
 
 	public var node:String;
 
-	public function new(options:BaseOptions) {
+	public function new(?options:BaseOptions) {
 		super();
+
 		// Options holds all options of the current port
-		this.options = handleOptions(options);
+		if (options != null)
+			this.options = handleOptions(options);
 		// Sockets list contains all currently attached
 		// connections to the port
 		/** @type {Array<import("./InternalSocket").InternalSocket|void>} */
@@ -105,33 +109,33 @@ class BasePort extends EventEmitter {
 	}
 
 	public function getDataType():String {
-		return this.options.dataType != null ? this.options.dataType : 'all';
+		return this.options != null && this.options.dataType != null ? this.options.dataType : 'all';
 	}
 
 	public function getSchema():String {
-		return this.options.schema != null ? this.options.schema : null;
+		return this.options != null && this.options.schema != null ? this.options.schema : null;
 	}
 
 	public function getDescription():String {
-		return this.options.description;
+		return this.options != null ? this.options.description : "";
 	}
 
 	public function attach(socket:InternalSocket, ?index:Int) {
-		
 		var idx = /** @type {number} */ (index);
 		if (!this.isAddressable() || (index == null)) {
 			idx = this.sockets.length;
 		}
-		
+
+		if (this.sockets == null)
+			this.sockets = [];
 		this.sockets[idx] = socket;
-		
+
 		this.attachSocket(socket, idx);
-		
+
 		if (this.isAddressable()) {
 			this.emit('attach', socket, idx);
 			return;
 		}
-		
 		this.emit('attach', socket);
 	}
 
@@ -158,14 +162,14 @@ class BasePort extends EventEmitter {
 	}
 
 	public function isBuffered() {
-		if (this.options != null &&this.options.buffered) {
+		if (this.options != null && this.options.buffered) {
 			return true;
 		}
 		return false;
 	}
 
 	public function isRequired() {
-		if (this.options != null &&this.options.required) {
+		if (this.options != null && this.options.required) {
 			return true;
 		}
 		return false;

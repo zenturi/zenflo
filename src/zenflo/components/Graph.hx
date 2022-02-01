@@ -194,7 +194,7 @@ class Graph extends Component {
 		final outPorts = process.component.outPorts.ports;
 		(() -> {
 			for (portName => port in inPorts) {
-				final targetPortName = this.isExportedInport(port, name, portName);
+				final targetPortName = this.isExportedInport(cast port, name, portName);
 				if (Std.isOfType(targetPortName, String)) {
 					return;
 				}
@@ -220,7 +220,7 @@ class Graph extends Component {
 
 		(() -> {
 			for (portName => port in outPorts) {
-				final targetPortName = this.isExportedOutport(port, name, portName);
+				final targetPortName = this.isExportedOutport(cast port, name, portName);
 				if (Std.isOfType(targetPortName, String)) {
 					return;
 				}

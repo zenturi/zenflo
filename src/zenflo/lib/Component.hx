@@ -216,7 +216,7 @@ class Component extends EventEmitter {
 				// Clear contents of inport buffers
 				final inPorts = this.inPorts.ports;
 				for (portName in inPorts.keys()) {
-					final inPort = /** @type {InPort} */ (inPorts[portName]);
+					final inPort:InPort = /** @type {InPort} */ cast (inPorts[portName]);
 					inPort.clear();
 				}
 
@@ -236,9 +236,9 @@ class Component extends EventEmitter {
 					/**
 					 * @param {number} load
 					 */
-					var checkLoad:(loads:Rest<Any>) -> Void = null;
+					var checkLoad:(loads:Array<Any>) -> Void = null;
 
-					checkLoad = (loads:Rest<Any>) -> {
+					checkLoad = (loads:Array<Any>) -> {
 						final load:Int = loads[0];
 						if (load > 0) {
 							return;
@@ -256,7 +256,7 @@ class Component extends EventEmitter {
 			.next((_) -> {
 				final inPorts = this.inPorts.ports;
 				for (portName in inPorts.keys()) {
-					final inPort = /** @type {InPort} */ (inPorts[portName]);
+					final inPort:InPort = /** @type {InPort} */ cast (inPorts[portName]);
 					inPort.clear();
 				}
 
@@ -320,7 +320,7 @@ class Component extends EventEmitter {
 		errors are thrown.
 	**/
 	public function error(e:Error, ?groups:Array<String>, errorPort = 'error', scope:String = null) {
-		final outPort = /** @type {OutPort} */ (this.outPorts.ports[errorPort]);
+		final outPort:OutPort = /** @type {OutPort} */ cast  (this.outPorts.ports[errorPort]);
 		if (outPort != null && (outPort.isAttached() || !outPort.isRequired())) {
 			for (group in groups) {
 				outPort.openBracket(group, new IP(DATA, null, {scope: scope}));
@@ -559,6 +559,7 @@ class Component extends EventEmitter {
 		if (this.inPorts == null) {
 			throw new Error('Component ports must be defined before process function');
 		}
+
 		this.prepareForwarding();
 		this.handle = handle;
 		for (name in this.inPorts.ports.keys()) {
@@ -566,7 +567,11 @@ class Component extends EventEmitter {
 			if (port.name == null) {
 				port.name = name;
 			}
-			port.on('ip', (ips) -> this.handleIP(ips[0], port));
+			cast(port, EventEmitter).on('ip', (ips) -> {
+				final ip = ips[0];
+
+				this.handleIP(ip, cast port);
+			});
 		}
 		return this;
 	}
@@ -631,7 +636,8 @@ class Component extends EventEmitter {
 		be checked and component can do processing as needed.
 	**/
 	public function handleIP(ip:IP, port:Null<InPort>) {
-		if (!cast(port.options, InPortOptions).triggering) {
+		final op:Dynamic = port.options;
+		if (op != null && !op.triggering) {
 			// If port is non-triggering, we can skip the process function call
 			return;
 		}
@@ -694,13 +700,12 @@ class Component extends EventEmitter {
 		}
 
 		// Prepare the input/output pair
-
-		final context:ProcessContext = {
-			ip:ip, 
-			nodeInstance: this, 
-			port: port, 
+		final context:ProcessContext = new ProcessContext({
+			ip: ip,
+			nodeInstance: this,
+			port: port,
 			result: result
-		}
+		});
 		final input = new ProcessInput(this.inPorts, context);
 		final output = new ProcessOutput(this.outPorts, context);
 		try {
@@ -709,17 +714,19 @@ class Component extends EventEmitter {
 				throw new Error('Processing function not defined');
 			}
 			final res = this.handle(input, output, context);
-			// Processing function is a Promise
-			res.handle((c) -> {
-				switch c {
-					case Success(data): {
-							output.sendDone(data);
-						}
-					case Failure(failure): {
-							output.done(failure);
-						}
-				}
-			});
+			if (res != null) {
+				// Processing function is a Promise
+				res.handle((c) -> {
+					switch c {
+						case Success(data): {
+								output.sendDone(data);
+							}
+						case Failure(failure): {
+								output.done(failure);
+							}
+					}
+				});
+			}
 		} catch (e:Error) {
 			this.deactivate(context);
 			output.sendDone(e);
@@ -774,7 +781,8 @@ class Component extends EventEmitter {
 							if (this.outPorts.ports[port].options.scoped) {
 								ip.scope = null;
 							}
-							this.outPorts.ports[port].sendIP(Either.Left(ip));
+							final out:OutPort = cast this.outPorts.ports[port];
+							out.sendIP(Either.Left(ip));
 						};
 					}
 					return;
@@ -797,7 +805,8 @@ class Component extends EventEmitter {
 						if (!this.outPorts.ports[port].options.scoped) {
 							ip.scope = null;
 						}
-						this.outPorts.ports[port].sendIP(Either.Left(ip));
+						final out:OutPort = cast this.outPorts.ports[port];
+						out.sendIP(Either.Left(ip));
 					}
 				}
 			}
@@ -918,19 +927,37 @@ class Component extends EventEmitter {
 }
 
 class DebugComponent #if !cpp extends sneaker.tag.Tagged #end {
-	#if cpp private var tag:String; #end
+	#if cpp
+	private var tag:String;
+	#end
+
 	public function new(tag:String) {
-		#if !cpp super(); #end
-		#if !cpp this.tag = new  sneaker.tag.Tag(tag); #end
-		#if cpp this.tag = tag; #end
+		#if !cpp
+		super();
+		#end
+		#if !cpp
+		this.tag = new sneaker.tag.Tag(tag);
+		#end
+		#if cpp
+		this.tag = tag;
+		#end
 	}
 
 	public function Debug(message:String) {
-		#if !cpp this.debug(message); #end
-		#if cpp Sys.println('[$tag] => $message'); #end
+		#if !cpp
+		this.debug(message);
+		#end
+		#if cpp
+		Sys.println('[$tag] => $message');
+		#end
 	}
+
 	public function Error(message:String) {
-		#if !cpp this.error(message); #end
-		#if cpp Sys.println('[$tag] => $message'); #end
+		#if !cpp
+		this.error(message);
+		#end
+		#if cpp
+		Sys.println('[$tag] => $message');
+		#end
 	}
 }

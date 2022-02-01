@@ -8,7 +8,7 @@ import haxe.ds.List;
 @:arrayAccess
 abstract ZArray<T>(ArrayList<T>) from ArrayList<T> to ArrayList<T> {
     public function new() {
-        this = new ArrayList<T>();
+        this = new ArrayList<T>(false);
     }
 
     @:from

@@ -120,7 +120,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 		for (i in 0...args.length) {
 			final port:Dynamic = args[i];
 			if (Std.isOfType(port, Array)) {
-				final portImpl:InPort = /** @type {import("./InPort").default} */ (this.ports.ports[port[0]]);
+				final portImpl:InPort = /** @type {import("./InPort").default} */ cast (this.ports.ports[port[0]]);
 				if (portImpl == null) {
 					throw new Error('Node ${this.nodeInstance.nodeId} has no port \'${port[0]}\'');
 				}
@@ -132,14 +132,17 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 					return false;
 				}
 			} else if (Std.isOfType(port, String)) {
-				final portImpl:InPort = /** @type {import("./InPort").default} */ (this.ports.ports[port]);
+				final portImpl:InPort = /** @type {import("./InPort").default} */ cast (this.ports.ports[port]);
 				if (portImpl == null) {
 					throw new Error('Node ${this.nodeInstance.nodeId} has no port \'${port}\'');
 				}
+				
 				if (portImpl.isAddressable()) {
 					throw new Error('For addressable ports, access must be with array [${port}, idx]');
 				}
-				if (!portImpl.has(this.scope, validate)) {
+				
+				var check = portImpl.has(this.scope, validate);
+				if (check == false) {
 					return false;
 				}
 			} else {
@@ -271,7 +274,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 				ip = this.__getForForwarding(name, idxName);
 				res.push(ip);
 			} else {
-				final portImpl = /** @type {import("./InPort").default} */ (this.ports.ports[name]);
+				final portImpl:InPort = /** @type {import("./InPort").default} */ cast (this.ports.ports[name]);
 				ip = portImpl.get(this.scope, idxName);
 				res.push(ip);
 			}
@@ -292,7 +295,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 
 		while (ok) {
 			// Read next packet
-			final portImpl = /** @type {import("./InPort").default} */ (this.ports.ports[port]);
+			final portImpl:InPort = /** @type {import("./InPort").default} */ cast (this.ports.ports[port]);
 			final ip:IP = portImpl.get(this.scope, idx);
 			// Stop at the end of the buffer
 			if (ip == null) {

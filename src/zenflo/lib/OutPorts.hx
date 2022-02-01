@@ -2,11 +2,11 @@ package zenflo.lib;
 
 import tink.core.Error;
 import haxe.ds.Either;
-import zenflo.lib.OutPort.OutPortOptions;
+import zenflo.lib.OutPortOptions;
 
 import haxe.DynamicAccess;
 
-typedef OutPortsOptions = DynamicAccess<OutPortOptions>;
+typedef OutPortsOptions = DynamicAccess</**Outport | OutPortOptions **/Any>;
 
 class OutPorts extends Ports {
 	public function new(?_ports:OutPortsOptions) {
@@ -14,37 +14,37 @@ class OutPorts extends Ports {
             _ports = new DynamicAccess<OutPortOptions>();
         }
       
-        super(_ports, "zenflo.lib.OutPort");
+        super(cast _ports, "zenflo.lib.OutPort");
         final basePorts = this.ports;
         this.ports = basePorts;
 	}
 
     public function connect(name:String, socketId:Int) {
-        final port = /** @type {OutPort} */ (this.ports[name]);
+        final port:OutPort = /** @type {OutPort} */ cast (this.ports[name]);
         if (port == null) { throw new Error('Port ${name} not available'); }
         port.connect(socketId);
       }
     
       public function beginGroup(name:String, group:String, socketId:Int) {
-        final port = /** @type {OutPort} */ (this.ports[name]);
+        final port:OutPort = /** @type {OutPort} */ cast (this.ports[name]);
         if (port == null) { throw new Error('Port ${name} not available'); }
         port.beginGroup(group, socketId);
       }
     
       public function send(name:String, data:Any, socketId:Int) {
-        final port = /** @type {OutPort} */ (this.ports[name]);
+        final port:OutPort = /** @type {OutPort} */ cast (this.ports[name]);
         if (port == null) { throw new Error('Port ${name} not available'); }
         port.send(data, socketId);
       }
     
       public function endGroup(name:String, socketId:Int) {
-        final port = /** @type {OutPort} */ (this.ports[name]);
+        final port:OutPort = /** @type {OutPort} */ cast (this.ports[name]);
         if (port == null) { throw new Error('Port ${name} not available'); }
         port.endGroup(socketId);
       }
     
       public function disconnect(name:String, socketId:Int) {
-        final port = /** @type {OutPort} */ (this.ports[name]);
+        final port:OutPort = /** @type {OutPort} */ cast (this.ports[name]);
         if (port == null) { throw new Error('Port ${name} not available'); }
         port.disconnect(socketId);
       }
