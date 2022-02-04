@@ -19,6 +19,11 @@ abstract OutPorts(Ports) {
 		this.ports = basePorts;
 	}
 
+  @:from
+  public static function fromOptions(options:OutPortsOptions):OutPorts {
+    return new OutPorts(options);
+  }
+
 	public function connect(name:String, ?socketId:Int) {
 		final port:OutPort = /** @type {OutPort} */ cast(this.ports[name]);
 		if (port == null) {

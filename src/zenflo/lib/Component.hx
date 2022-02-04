@@ -16,18 +16,20 @@ import tink.core.Promise;
 
 typedef ErrorableCallback = (e:Error) -> Void;
 
+// typedef TBracketContext =  DynamicAccess<Dynamic>;
+
 @:forward
 abstract BracketContext(Dynamic) from Dynamic to Dynamic {
 	public inline function new() {
 		this = {
-			"in": new DynamicAccess<Dynamic>(),
-			"out": new DynamicAccess<Dynamic>()
+			"in": {},
+			"out": {}
 		};
 	}
 
 	@:arrayAccess
 	public function setField(key:String, value:Any) {
-		Reflect.setField(this, key, value);
+		Reflect.setField(this, key,  value);
 	}
 
 	@:arrayAccess
@@ -43,12 +45,12 @@ class ComponentOptions {
 	/**
 		Inports for the component
 	**/
-	public var inPorts:Either<InPortsOptions, InPorts> = null;
+	public var inPorts:InPorts = null;
 
 	/**
 		Outports for the component
 	**/
-	public var outPorts:Either<OutPortsOptions, OutPorts> = null;
+	public var outPorts:OutPorts = null;
 
 	public var icon:String = null;
 	public var description:String = null;
@@ -75,7 +77,7 @@ class ComponentOptions {
 	/**
 		Mappings of forwarding ports
 	**/
-	public var forwardBrackets:DynamicAccess<Array<String>> = {};
+	public var forwardBrackets:DynamicAccess<Array<String>> = null;
 }
 
 class Component extends EventEmitter {
@@ -111,36 +113,18 @@ class Component extends EventEmitter {
 		// instantiation by using the `component.inPorts.add`
 		// method.
 		if (opts.inPorts == null) {
-			opts.inPorts = Either.Right(new InPorts({}));
+			opts.inPorts = new InPorts();
 		}
-		switch opts.inPorts {
-			case Right(v):
-				{
-					this.inPorts = v;
-				}
-			case Left(v):
-				{
-					this.inPorts = new InPorts(v);
-				}
-		}
+		this.inPorts = opts.inPorts;
 
 		// Prepare outports, if any were given in opts.
 		// They can also be set up imperatively after component
 		// instantiation by using the `component.outPorts.add`
 		// method.
 		if (opts.outPorts == null) {
-			opts.outPorts = Either.Right(new OutPorts({}));
+			opts.outPorts = new OutPorts();
 		}
-		switch opts.outPorts {
-			case Right(v):
-				{
-					this.outPorts = v;
-				}
-			case Left(v):
-				{
-					this.outPorts = new OutPorts(v);
-				}
-		}
+		this.outPorts = opts.outPorts;
 
 		// Set the default component icon and description
 		this.icon = opts.icon != null ? opts.icon : '';
@@ -216,7 +200,7 @@ class Component extends EventEmitter {
 				// Clear contents of inport buffers
 				final inPorts = this.inPorts.ports;
 				for (portName in inPorts.keys()) {
-					final inPort:InPort = /** @type {InPort} */ cast (inPorts[portName]);
+					final inPort:InPort = /** @type {InPort} */ cast(inPorts[portName]);
 					inPort.clear();
 				}
 
@@ -256,7 +240,7 @@ class Component extends EventEmitter {
 			.next((_) -> {
 				final inPorts = this.inPorts.ports;
 				for (portName in inPorts.keys()) {
-					final inPort:InPort = /** @type {InPort} */ cast (inPorts[portName]);
+					final inPort:InPort = /** @type {InPort} */ cast(inPorts[portName]);
 					inPort.clear();
 				}
 
@@ -320,17 +304,19 @@ class Component extends EventEmitter {
 		errors are thrown.
 	**/
 	public function error(e:Error, ?groups:Array<String>, errorPort = 'error', scope:String = null) {
-		final outPort:OutPort = /** @type {OutPort} */ cast  (this.outPorts.ports[errorPort]);
+		final outPort:OutPort = /** @type {OutPort} */ cast(this.outPorts.ports[errorPort]);
 		if (outPort != null && (outPort.isAttached() || !outPort.isRequired())) {
-			for (group in groups) {
-				outPort.openBracket(group, new IP(DATA, null, {scope: scope}));
+			if (groups != null) {
+				for (group in groups) {
+					outPort.openBracket(group, new IP(DATA, null, {scope: scope}));
+				}
 			}
-
 			outPort.data(e, new IP(DATA, null, {scope: scope}));
-			for (group in groups) {
-				outPort.closeBracket(group, new IP(DATA, null, {scope: scope}));
+			if (groups != null) {
+				for (group in groups) {
+					outPort.closeBracket(group, new IP(DATA, null, {scope: scope}));
+				}
 			}
-
 			return;
 		}
 		throw e;
@@ -366,8 +352,10 @@ class Component extends EventEmitter {
 		Ensures bracket forwarding map is correct for the existing ports
 	**/
 	public function prepareForwarding() {
+		
 		for (inPort in this.forwardBrackets.keys()) {
 			final outPorts = this.forwardBrackets[inPort];
+			
 			if (!(this.inPorts.ports.exists(inPort))) {
 				this.forwardBrackets.remove(inPort);
 				return;
@@ -443,26 +431,34 @@ class Component extends EventEmitter {
 	/**
 		Get the current bracket forwarding context for an IP object
 	**/
-	public function getBracketContext(type:String, port:String, scope:String, ?idx:Int):Array<BracketContext> {
+	public function getBracketContext(type:String, port:String, scope:String = "_", ?idx:Int):Array<BracketContext> {
 		final x = normalizePortName(port);
+	
 		var name = x.name;
 		var index = x.index;
 		if (idx != null) {
 			index = '${idx}';
 		}
 		final portsList:Ports = type == 'in' ? cast this.inPorts : cast this.outPorts;
+
 		if (portsList.ports[name].isAddressable()) {
 			name = '${name}[${index}]';
 		} else {
 			name = port;
 		}
+
+		if(scope == null) scope = "_";
+		
 		// Ensure we have a bracket context for the current scope
-		if (Reflect.field(this.bracketContext[type], name) == null) {
-			Reflect.setField(this.bracketContext[type], name, {});
+		if (!Reflect.hasField(this.bracketContext[type], name)) {
+			Reflect.setField(this.bracketContext[type], name, {});	
 		}
-		if (Reflect.field(Reflect.field(this.bracketContext[type], name), scope) == null) {
-			Reflect.setField(Reflect.field(this.bracketContext[type], name), scope, []);
+		
+		
+		if(!Reflect.hasField(Reflect.field(this.bracketContext[type], name), scope)){
+			Reflect.setField(Reflect.field(this.bracketContext[type], name), scope, []);	
 		}
+
 		return Reflect.field(Reflect.field(this.bracketContext[type], name), scope);
 	}
 
@@ -563,14 +559,14 @@ class Component extends EventEmitter {
 		this.prepareForwarding();
 		this.handle = handle;
 		for (name in this.inPorts.ports.keys()) {
-			final port = /** @type {InPort} */ (this.inPorts.ports[name]);
+			final port:InPort = cast /** @type {InPort} */ (this.inPorts.ports[name]);
 			if (port.name == null) {
 				port.name = name;
 			}
-			cast(port, EventEmitter).on('ip', (ips) -> {
+			port.on('ip', (ips) -> {
 				final ip = ips[0];
-
-				this.handleIP(ip, cast port);
+				// trace(ip);
+				this.handleIP(ip, port);
 			});
 		}
 		return this;

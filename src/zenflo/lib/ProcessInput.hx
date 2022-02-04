@@ -11,7 +11,9 @@ import sneaker.log.Logger.*;
 
 class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 	public function new(ports:InPorts, context:ProcessContext) {
-		#if !cpp super(); #end
+		#if !cpp
+		super();
+		#end
 		this.ports = ports;
 		this.context = context;
 		this.nodeInstance = this.context.nodeInstance;
@@ -20,7 +22,9 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 		this.result = this.context.result;
 		this.scope = this.context.scope;
 
-		#if !cpp  this.newTag("zenflo:component"); #end
+		#if !cpp
+		this.newTag("zenflo:component");
+		#end
 	}
 
 	public var ip:IP;
@@ -33,7 +37,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 
 	public var activated:Bool;
 
-	public var scope:String;
+	public var scope:String = "_";
 
 	public var deactivated:Bool;
 
@@ -42,7 +46,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 	var ports:InPorts;
 
 	#if cpp
-	function debug(msg:String){
+	function debug(msg:String) {
 		Sys.println('[zenflo:component] => $msg');
 	}
 	#end
@@ -111,6 +115,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 		if (args.length == 0) {
 			args = ['in'];
 		}
+
 		if (Reflect.isFunction(params[params.length - 1])) {
 			validate = /** @type {HasValidationCallback} */ (params[params.length - 1]);
 		} else {
@@ -119,8 +124,9 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 
 		for (i in 0...args.length) {
 			final port:Dynamic = args[i];
-			if (Std.isOfType(port, Array)) {
-				final portImpl:InPort = /** @type {import("./InPort").default} */ cast (this.ports.ports[port[0]]);
+
+			if (port != null && Std.isOfType(port, Array)) {
+				final portImpl:InPort = /** @type {import("./InPort").default} */ cast(this.ports.ports[port[0]]);
 				if (portImpl == null) {
 					throw new Error('Node ${this.nodeInstance.nodeId} has no port \'${port[0]}\'');
 				}
@@ -131,16 +137,16 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 				if (!portImpl.has(this.scope, portIdx, validate)) {
 					return false;
 				}
-			} else if (Std.isOfType(port, String)) {
-				final portImpl:InPort = /** @type {import("./InPort").default} */ cast (this.ports.ports[port]);
+			} else if (port != null && Std.isOfType(port, String)) {
+				final portImpl:InPort = /** @type {import("./InPort").default} */ cast(this.ports.ports[port]);
 				if (portImpl == null) {
 					throw new Error('Node ${this.nodeInstance.nodeId} has no port \'${port}\'');
 				}
-				
+
 				if (portImpl.isAddressable()) {
 					throw new Error('For addressable ports, access must be with array [${port}, idx]');
 				}
-				
+
 				var check = portImpl.has(this.scope, validate);
 				if (check == false) {
 					return false;
@@ -157,12 +163,12 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 		Returns true if the ports contain data packets
 	**/
 	public function hasData(...params:String):Bool {
-		var args = params.toArray();
+		var args = params;
 		if (args.length == 0) {
 			args = ['in'];
 		}
-		final hasArgs:Array<Dynamic> = [for (arg in args) args];
-		hasArgs.push((ip) -> ip.type == 'data');
+		var hasArgs:haxe.Rest<Dynamic> = args;
+		hasArgs = hasArgs.append((ip) -> ip.type == 'data');
 		return this.has(...hasArgs);
 	}
 
@@ -274,7 +280,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 				ip = this.__getForForwarding(name, idxName);
 				res.push(ip);
 			} else {
-				final portImpl:InPort = /** @type {import("./InPort").default} */ cast (this.ports.ports[name]);
+				final portImpl:InPort = /** @type {import("./InPort").default} */ cast(this.ports.ports[name]);
 				ip = portImpl.get(this.scope, idxName);
 				res.push(ip);
 			}
@@ -295,7 +301,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 
 		while (ok) {
 			// Read next packet
-			final portImpl:InPort = /** @type {import("./InPort").default} */ cast (this.ports.ports[port]);
+			final portImpl:InPort = /** @type {import("./InPort").default} */ cast(this.ports.ports[port]);
 			final ip:IP = portImpl.get(this.scope, idx);
 			// Stop at the end of the buffer
 			if (ip == null) {
@@ -342,9 +348,10 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 
 		// Add current bracket context to the result so that when we send
 		// to ports we can also add the surrounding brackets
-		if (this.result.__bracketContext != null) {
+		if (this.result.__bracketContext == null) {
 			this.result.__bracketContext = new BracketContext();
 		}
+
 		this.result.__bracketContext[port] = this.nodeInstance.getBracketContext('in', port, this.scope, idx).slice(0);
 		// Bracket closings that were in buffer after the data packet need to
 		// be added to result for done() to read them from

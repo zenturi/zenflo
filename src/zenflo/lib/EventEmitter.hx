@@ -11,7 +11,8 @@ import haxe.ds.Map;
 // import hx.concurrent.event.AsyncEventDispatcher;
 // import hx.concurrent.event.SyncEventDispatcher;
 // import hx.concurrent.executor.Executor;
-import rx.Subject;
+// import rx.Subject;
+import rx.subjects.Replay as Subject;
 import rx.Observer;
 
 using StringTools;
@@ -19,8 +20,11 @@ using StringTools;
 class EventEmitter {
 	var subjects:Map<String, {subject:Subject<Array<Any>>, once:Bool}>;
 
+	var listeners:Map<String, Array<Observer<Array<Any>>>>;
+
 	public function new() {
 		subjects = new Map<String, {subject:Subject<Array<Any>>, once:Bool}>();
+		listeners = new Map();
 	}
 
 	function createName(name:String) {
@@ -37,6 +41,7 @@ class EventEmitter {
 				if (f.once) {
 					f.subject.unsubscribe();
 					this.subjects.remove(fnName);
+					this.listeners.clear();
 				}
 			}
 		}
@@ -47,9 +52,12 @@ class EventEmitter {
 		if (!this.subjects.exists(fnName)) {
 			this.subjects.set(fnName, {subject: new Subject(), once: once});
 		}
+		if(!this.listeners.exists(fnName)) listeners.set(fnName, []);
 		final f = this.subjects.get(fnName);
 		if (f != null && f.subject != null) {
-			f.subject.subscribe(Observer.create(null, null, handler));
+			final o = Observer.create(null, null, handler);
+			f.subject.subscribe(o);
+			listeners.get(fnName).push(o);
 		}
 	}
 

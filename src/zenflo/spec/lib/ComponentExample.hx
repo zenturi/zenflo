@@ -1,6 +1,6 @@
 package zenflo.spec.lib;
 
-import haxe.Json;
+
 import haxe.Timer;
 import zenflo.lib.InternalSocket;
 import zenflo.spec.lib.MergeObjects.getComponent;

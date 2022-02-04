@@ -10,5 +10,6 @@ class Test implements Buddy<[
     zenflo.spec.lib.ComponentExample,
     zenflo.spec.lib.Inport,
     zenflo.spec.lib.Outport,
-    zenflo.spec.lib.Ports
+    zenflo.spec.lib.Ports,
+    zenflo.spec.lib.Component
 ]> {}

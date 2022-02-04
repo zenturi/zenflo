@@ -173,6 +173,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		}
 
 		final isLast = () -> {
+			
 			// We only care about real output sets with processing data
 			final resultsOnly = this.nodeInstance.outputQ.filter((q) -> {
 				if (!q.__resolved) {
@@ -199,6 +200,8 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			return false;
 		};
 
+		
+
 		if (this.nodeInstance.isOrdered() && isLast()) {
 			// We're doing bracket forwarding. See if there are
 			// dangling closeBrackets in buffer since we're the
@@ -208,10 +211,11 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			final contextIn:DynamicAccess<Dynamic> = Reflect.field(context, "in");
 			for (port in contextIn.keys()) {
 				final contexts:DynamicAccess<Array<ProcessContext>> = contextIn[port];
-				if (contexts[this.scope] != null) {
+				if (contexts[this.scope] == null) {
 					return;
 				}
 				final nodeContext:Array<ProcessContext> = contexts[this.scope];
+				
 				if (nodeContext.length == 0) {
 					return;
 				}
@@ -230,6 +234,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 				}
 			}
 		}
+		
 		this.debug('${this.nodeInstance.nodeId} finished processing ${this.nodeInstance.load}');
 
 		this.nodeInstance.deactivate(this.context);

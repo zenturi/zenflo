@@ -78,8 +78,8 @@ abstract IP(IPDynamic) from IPDynamic to IPDynamic {
 
         if(Reflect.isObject(options)){
 			this.___cloneData = Reflect.copy(options);
-            for (_ => value in Reflect.fields(this.___cloneData)) {
-                Reflect.setField(this, value, Reflect.field(this.___cloneData, value));
+            for (_ => value in Reflect.fields(options)) {
+                Reflect.setField(this, value, Reflect.field(options, value));
             }
         }
 	}

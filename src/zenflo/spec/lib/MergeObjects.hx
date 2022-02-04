@@ -1,36 +1,42 @@
 package zenflo.spec.lib;
 
+import zenflo.lib.InPorts.InPortsOptions;
+import zenflo.lib.OutPorts.OutPortsOptions;
 import haxe.Json;
 import haxe.ds.Either;
 import zenflo.lib.Component;
 import tink.core.Promise;
 
 function getComponent() {
+	final o:OutPortsOptions = {
+		result: {
+			dataType: 'object',
+		},
+		error: {
+			dataType: 'object',
+		},
+	};
+
+	final i:InPortsOptions = {
+		obj1: {
+			dataType: 'object',
+			description: 'First object',
+		},
+		obj2: {
+			dataType: 'object',
+			description: 'Second object',
+		},
+		overwrite: {
+			dataType: 'boolean',
+			description: 'Overwrite obj1 properties with obj2',
+			control: true,
+		},
+	};
+
 	final c = new Component({
 		description: 'Merges two objects into one (cloning)',
-		inPorts: Either.Left({
-			obj1: {
-				dataType: 'object',
-				description: 'First object',
-			},
-			obj2: {
-				dataType: 'object',
-				description: 'Second object',
-			},
-			overwrite: {
-				dataType: 'boolean',
-				description: 'Overwrite obj1 properties with obj2',
-				control: true,
-			},
-		}),
-		outPorts: Either.Left({
-			result: {
-				dataType: 'object',
-			},
-			error: {
-				dataType: 'object',
-			},
-		}),
+		inPorts: i,
+		outPorts: o
 	});
 
 	

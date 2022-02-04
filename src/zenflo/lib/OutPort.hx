@@ -96,6 +96,7 @@ class OutPort extends BasePort {
 
 	public function beginGroup(group:String, ?index:Int) {
 		final sockets = this.getSockets(index);
+		trace(sockets);
 		this.checkRequired(sockets);
 		for (socket in sockets) {
 			if (socket == null) {

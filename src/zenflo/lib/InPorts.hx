@@ -16,6 +16,11 @@ abstract InPorts(Ports) {
        this = new Ports(cast _ports, "zenflo.lib.InPort");
     }
 
+    @:from
+    public static function fromOptions(options:InPortsOptions):InPorts {
+      return new InPorts(options);
+    }
+
     @:arrayAccess
 	public function get(name:String):BasePort {
 		if (!this.ports.exists(name)) {
