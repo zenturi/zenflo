@@ -135,6 +135,7 @@ class InternalSocket extends EventEmitter {
 			Timer.delay(() -> this.regularEmitEvent(event, data), 0);
 			return;
 		}
+		
 		this.regularEmitEvent(event, data);
 	}
 
@@ -370,6 +371,7 @@ class InternalSocket extends EventEmitter {
 		if (event == 'disconnect') {
 			this.connected = false;
 		}
+
 		this.emitEvent(event, payload);
 	}
 

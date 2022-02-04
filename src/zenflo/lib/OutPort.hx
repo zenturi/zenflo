@@ -21,7 +21,7 @@ class OutPort extends BasePort {
 		if (opts.caching == null) {
 			opts.caching = false;
 		}
-		super({});
+		super(opts);
 
 		final baseOptions = this.options;
 		this.options = /** @type {PortOptions} */ (baseOptions);
@@ -81,9 +81,11 @@ class OutPort extends BasePort {
 	public function send(data:Any, ?index:Int) {
 		final sockets = this.getSockets(index);
 		this.checkRequired(sockets);
-		if (this.isCaching() && (data != this.cache['{index}'])) {
+		
+		if (this.isCaching() && (data != this.cache['${index}'])) {
 			this.cache['${index}'] = data;
 		}
+
 		for (socket in sockets) {
 			if (socket == null) {
 				return;
@@ -133,7 +135,7 @@ class OutPort extends BasePort {
 		return this.sendIP(Either.Right(DATA), data, options, index);
 	}
 
-	public function sendIP(type:Either<IP, IPType>, ?data:Null<String>, ?options:Null<IPDynamic>, ?index:Null<Int>) {
+	public function sendIP(type:Either<IP, IPType>, ?data:Null<Any>, ?options:Null<IPDynamic>, ?index:Null<Int>) {
 		/** @type {IP} */
 		var ip:IP = null;
 
@@ -187,7 +189,9 @@ class OutPort extends BasePort {
 
 	var autoConnect(default, null):Bool = false;
 
-	public function closeBracket(group:String, arg1:IP) {}
+	public function closeBracket(?data:Any, ?options:Any, index = null) {
+		return this.sendIP(Either.Right(CloseBracket), data, options, index);
+	}
 }
 
 

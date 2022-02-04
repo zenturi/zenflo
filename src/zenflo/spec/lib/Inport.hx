@@ -174,7 +174,7 @@ class Inport extends buddy.BuddySuite {
                 });
                 s.send('awesome');
             });
-            it('should throw an error if value is not accepted',  {
+            it('should throw an error if value is not accepted',  (done)->{
                 final p = new InPort({ values: 'noflo is awesome'.split(' ') });
                 final s = new InternalSocket();
                 p.attach(s);
@@ -188,6 +188,7 @@ class Inport extends buddy.BuddySuite {
                 }catch(e:Error){
                     e.should.not.be(null);
                     e.should.beType(Error);
+                    done();
                 }
               });
         });

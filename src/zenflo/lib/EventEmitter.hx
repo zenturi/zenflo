@@ -29,11 +29,9 @@ class EventEmitter {
 
 	public function emit(name:String, data:haxe.Rest<Any>) {
 		final fnName = createName(name);
-		
 		if (this.subjects.exists(fnName)) {
 			final x = [for (v in data) v];
 			final f = this.subjects.get(fnName);
-			
 			if (f != null && f.subject != null) {
 				f.subject.on_next(x);
 				if (f.once) {

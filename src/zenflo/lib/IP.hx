@@ -77,9 +77,9 @@ abstract IP(IPDynamic) from IPDynamic to IPDynamic {
         };
 
         if(Reflect.isObject(options)){
-			this.___cloneData = options;
-            for (_ => value in Reflect.fields(options)) {
-                Reflect.setField(this, value, Reflect.field(options, value));
+			this.___cloneData = Reflect.copy(options);
+            for (_ => value in Reflect.fields(this.___cloneData)) {
+                Reflect.setField(this, value, Reflect.field(this.___cloneData, value));
             }
         }
 	}
@@ -90,8 +90,9 @@ abstract IP(IPDynamic) from IPDynamic to IPDynamic {
     **/
     public function clone():IP {
         final ip = new IP(this.type, this.data, this.___cloneData);
-        for (_=> key in Reflect.fields(this)) {
-            final val = Reflect.field(this, key);
+		final copy = Reflect.copy(this);
+        for (_=> key in Reflect.fields(copy)) {
+            final val = Reflect.field(copy, key);
             if (key == 'owner') { return ip; }
             if (val == null) { return ip; }
             Reflect.setField(ip, key, val);

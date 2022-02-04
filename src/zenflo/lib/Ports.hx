@@ -9,17 +9,25 @@ import tink.core.Error;
 using StringTools;
 
 
-class Ports extends EventEmitter {
-	public final model:String;
+typedef TPorts = {
+	var model:String;
+	var ports:DynamicAccess<BasePort>;
+	var _events:EventEmitter;
+}
 
-	public var ports:DynamicAccess<BasePort> = new DynamicAccess<BasePort>();
 
+@:forward
+abstract Ports(TPorts) {
 	public function new(ports:DynamicAccess<Dynamic>, type:String) {
-		super();
-		this.model = type;
+		this = {
+			_events: new EventEmitter(),
+			model: type,
+			ports: new DynamicAccess<BasePort>()
+		};
+		
 		for (name in ports.keys()) {
 			final options = ports[name];
-			this.add(name, options);
+			add(name, options);
 		}
 	}
 
@@ -40,7 +48,7 @@ class Ports extends EventEmitter {
 
 		// Remove previous implementation
 		if (this.ports.exists(name)) {
-			this.remove(name);
+			remove(name);
 		}
 
 		final maybePort = /** @type {import("./BasePort").default} */ (options);
@@ -48,15 +56,17 @@ class Ports extends EventEmitter {
 		if (Std.isOfType(maybePort, BasePort) && maybePort.canAttach != null) {
 			this.ports[name] = cast maybePort;
 		} else {
-			if (model == 'zenflo.lib.InPort'){
+			if (this.model == 'zenflo.lib.InPort'){
 				this.ports[name] = cast new zenflo.lib.InPort(cast options);
 			}
-			if (model == 'zenflo.lib.OutPort'){
+			if (this.model == 'zenflo.lib.OutPort'){
 				this.ports[name] = cast new zenflo.lib.OutPort(cast options);
 			}
 		}
 
-		this.emit('add', name);
+		Reflect.setField(this, name, this.ports[name]);
+
+		this._events.emit('add', name);
 
 		return this;
 	}
@@ -66,12 +76,112 @@ class Ports extends EventEmitter {
 			throw new Error('Port ${name} not defined');
 		}
 		this.ports.remove(name);
-
-		this.emit('remove', name);
+		Reflect.deleteField(this, name);
+		this._events.emit('remove', name);
 
 		return this;
 	}
+
+	@:arrayAccess
+	public function get(name:String):BasePort {
+		if (!this.ports.exists(name)) {
+			throw new Error('Port ${name} not defined');
+		}
+		return Reflect.field(this, name);
+	}
+
+
+	public function on(port:String, event:String, handler:(data:Array<Any>) -> Void) {
+		if (!this.ports.exists(port)) {
+			throw new Error('Port ${port} not defined');
+		}
+		this.ports[port].on(event, handler, false);
+	}
+
+	public function once(port:String, event:String, handler:(data:Array<Any>) -> Void) {
+		if (!this.ports.exists(port)) {
+			throw new Error('Port ${port} not defined');
+		}
+		this.ports[port].once(event, handler);
+	}
 }
+// class _Ports extends EventEmitter {
+// 	public final model:String;
+
+// 	public var ports:DynamicAccess<BasePort> = new DynamicAccess<BasePort>();
+
+// 	public function new(ports:DynamicAccess<Dynamic>, type:String) {
+// 		super();
+// 		this.model = type;
+		
+// 		for (name in ports.keys()) {
+// 			final options = ports[name];
+// 			this.add(name, options);
+// 		}
+// 	}
+
+// 	override function on(name:String, handler:(data:Array<Any>) -> Void, once:Bool = false) {
+// 		if (!this.ports.exists(name)) {
+// 			throw new Error('Port ${name} not defined');
+// 		}
+// 		super.on(name, handler, once);
+// 	}
+
+// 	override function once(name:String, handler:(data:Array<Any>) -> Void) {
+// 		if (!this.ports.exists(name)) {
+// 			throw new Error('Port ${name} not defined');
+// 		}
+// 		super.once(name, handler);
+// 	}
+// 	public function add(name:String, ?options:Dynamic) {
+// 		if (options == null) {
+// 			options = {};
+// 		}
+// 		if ((name == 'add') || (name == 'remove')) {
+// 			throw new Error('Add and remove are restricted port names');
+// 		}
+
+// 		var re = ~/^[a-z0-9_\.\/]+$/;
+
+// 		/* eslint-disable no-useless-escape */
+// 		if (!re.match(name)) {
+// 			throw new Error('Port names can only contain lowercase alphanumeric characters and underscores. \'${name}\' not allowed');
+// 		}
+
+// 		// Remove previous implementation
+// 		if (this.ports.exists(name)) {
+// 			this.remove(name);
+// 		}
+
+// 		final maybePort = /** @type {import("./BasePort").default} */ (options);
+		
+// 		if (Std.isOfType(maybePort, BasePort) && maybePort.canAttach != null) {
+// 			this.ports[name] = cast maybePort;
+// 		} else {
+// 			if (model == 'zenflo.lib.InPort'){
+// 				this.ports[name] = cast new zenflo.lib.InPort(cast options);
+// 			}
+// 			if (model == 'zenflo.lib.OutPort'){
+// 				this.ports[name] = cast new zenflo.lib.OutPort(cast options);
+// 			}
+// 		}
+
+// 		this.emit('add', name);
+
+// 		return this;
+// 	}
+
+// 	public function remove(name:String) {
+// 		if (!this.ports.exists(name)) {
+// 			throw new Error('Port ${name} not defined');
+// 		}
+// 		this.ports.remove(name);
+
+// 		this.emit('remove', name);
+
+// 		return this;
+// 	}
+// }
 
 function normalizePortName(name:String) {
 	final port = {name: name, index: ""};
