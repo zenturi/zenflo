@@ -41,7 +41,7 @@ abstract Ports(TPorts) {
 
 		var re = ~/^[a-z0-9_\.\/]+$/;
 
-		/* eslint-disable no-useless-escape */
+		
 		if (!re.match(name)) {
 			throw new Error('Port names can only contain lowercase alphanumeric characters and underscores. \'${name}\' not allowed');
 		}

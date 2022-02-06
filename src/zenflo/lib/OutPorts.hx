@@ -37,6 +37,7 @@ abstract OutPorts(Ports) {
 		if (port == null) {
 			throw new Error('Port ${name} not available');
 		}
+
 		port.beginGroup(group, socketId);
 	}
 

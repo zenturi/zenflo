@@ -257,25 +257,28 @@ class BaseNetwork extends EventEmitter {
 						node: payload.socket.to.process.id,
 						port: payload.socket.to.port
 					} : null;
-					this.flowtrace.addNetworkPacket('network:${type}', src, tgt, this.flowtraceName, {
-						subgraph: payload.subgraph,
-						group: payload.group,
-						datatype: payload.datatype,
-						schema: payload.schema,
-						data: payload.data,
-					});
+					if(this.flowtrace != null){
+						this.flowtrace.addNetworkPacket('network:${type}', src, tgt, this.flowtraceName, {
+							subgraph: payload.subgraph,
+							group: payload.group,
+							datatype: payload.datatype,
+							schema: payload.schema,
+							data: payload.data,
+						});
+					}
+					
 				}
 			case 'start':
 				{
-					this.flowtrace.addNetworkStarted(this.flowtraceName);
+					if(this.flowtrace != null) this.flowtrace.addNetworkStarted(this.flowtraceName);
 				}
 			case 'end':
 				{
-					this.flowtrace.addNetworkStopped(this.flowtraceName);
+					if(this.flowtrace != null) this.flowtrace.addNetworkStopped(this.flowtraceName);
 				}
 			case 'error':
 				{
-					this.flowtrace.addNetworkError(this.flowtraceName, payload);
+					if(this.flowtrace != null) this.flowtrace.addNetworkError(this.flowtraceName, payload);
 				}
 			default:
 				{

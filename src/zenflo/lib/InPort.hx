@@ -127,7 +127,7 @@ class InPort extends BasePort {
 
 	public function getBuffer(scope:String, index:Int, initial = false) {
 		if (this.isAddressable()) {
-			if ((scope != null) && this.options.scoped) {
+			if ((scope != "null" || scope != null) && this.options.scoped) {
 				if (!(this.indexedScopedBuffer.exists(scope))) {
 					return null;
 				}
@@ -147,7 +147,7 @@ class InPort extends BasePort {
 			}
 			return this.indexedBuffer.get(index);
 		}
-		if ((scope != null) && this.options.scoped) {
+		if ((scope != "null" || scope != null) && this.options.scoped) {
 			if (!(this.scopedBuffer.exists(scope))) {
 				return null;
 			}
@@ -161,7 +161,7 @@ class InPort extends BasePort {
 
 	public function prepareBufferForIP(ip:IP):Array<IP> {
 		if (this.isAddressable()) {
-			if ((ip.scope != null) && this.options.scoped) {
+			if ((ip.scope != null || ip.scope != "null") && this.options.scoped) {
 				if (!(this.indexedScopedBuffer.exists(ip.scope))) {
 					this.indexedScopedBuffer.set(ip.scope, new IntMap());
 				}
@@ -181,7 +181,7 @@ class InPort extends BasePort {
 			}
 			return this.indexedBuffer.get(ip.index);
 		}
-		if ((ip.scope != null) && this.options.scoped) {
+		if (ip != null && (ip.scope != null || ip.scope != "null") && (this.options != null && this.options.scoped)) {
 			if (!(this.scopedBuffer.exists(ip.scope))) {
 				this.scopedBuffer[ip.scope] = [];
 			}
@@ -217,7 +217,7 @@ class InPort extends BasePort {
 
 	public function getFromBuffer(scope:String, index:Int, initial = false) {
 		final buf = this.getBuffer(scope, index, initial);
-		if (!(buf != null || buf.length != 0)) {
+		if (!(buf != null ? buf.length != 0 : false)) {
 			return null;
 		}
 		final op:Dynamic = this.options;
@@ -246,7 +246,7 @@ class InPort extends BasePort {
 	 */
 	public function hasIPinBuffer(scope:String, ?index:Int, validate:HasValidationCallback, initial = false) {
 		final buf = this.getBuffer(scope, index, initial);
-		if (!(buf != null || buf.length != 0)) {
+		if (!(buf != null ? buf.length != 0 : false)) {
 			return false;
 		}
 		for (i in 0...buf.length) {
@@ -282,12 +282,10 @@ class InPort extends BasePort {
 		}
 		
 		final checkBuf = this.hasIPinBuffer(scope, idx, valid);
-		// trace("checkBuf ", checkBuf);
 		if (checkBuf) {
 			return true;
 		}
 		final checkIIP =  this.hasIIP(idx, valid);
-		// trace("checkIIP ", checkIIP);
 		if (checkIIP) {
 			return true;
 		}

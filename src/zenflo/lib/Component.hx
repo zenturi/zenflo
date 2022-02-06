@@ -29,7 +29,7 @@ abstract BracketContext(Dynamic) from Dynamic to Dynamic {
 
 	@:arrayAccess
 	public function setField(key:String, value:Any) {
-		Reflect.setField(this, key,  value);
+		Reflect.setField(this, key, value);
 	}
 
 	@:arrayAccess
@@ -195,64 +195,47 @@ class Component extends EventEmitter {
 		all active processing contexts have ended.
 	**/
 	public function shutdown():Promise<Any> {
-		return this.tearDown()
-			.next((_) -> {
-				// Clear contents of inport buffers
-				final inPorts = this.inPorts.ports;
-				for (portName in inPorts.keys()) {
-					final inPort:InPort = /** @type {InPort} */ cast(inPorts[portName]);
-					inPort.clear();
-				}
+		return this.tearDown().next((_) -> new Promise((resolve, _) -> {
+			if (this.load > 0) {
+				// Some in-flight processes, wait for them to finish
 
-				// Clear bracket context
-				this.bracketContext = new BracketContext();
-				if (!this.isStarted()) {
-					return Promise.resolve(null);
-				}
-				this.started = false;
-				this.emit('end');
-				return Promise.resolve(null);
-			})
-			.next((_) -> new Promise((resolve, _) -> {
-				if (this.load > 0) {
-					// Some in-flight processes, wait for them to finish
+				/**
+				 * @param {number} load
+				 */
+				var checkLoad:(loads:Array<Any>) -> Void = null;
 
-					/**
-					 * @param {number} load
-					 */
-					var checkLoad:(loads:Array<Any>) -> Void = null;
+				checkLoad = (loads:Array<Any>) -> {
+					final load:Int = loads[0];
+					if (load > 0) {
+						return;
+					}
+					this.removeListener('deactivate', checkLoad);
+					resolve(null);
+				};
 
-					checkLoad = (loads:Array<Any>) -> {
-						final load:Int = loads[0];
-						if (load > 0) {
-							return;
-						}
-						// this.removeListener('deactivate', checkLoad);
-						resolve(null);
-					};
-
-					this.on('deactivate', checkLoad);
-					return null;
-				}
-				resolve(null);
+				this.on('deactivate', checkLoad);
 				return null;
-			}))
-			.next((_) -> {
-				final inPorts = this.inPorts.ports;
-				for (portName in inPorts.keys()) {
-					final inPort:InPort = /** @type {InPort} */ cast(inPorts[portName]);
-					inPort.clear();
-				}
+			} else {
+				resolve(null);
+			}
+			return null;
+		})).next((_) -> {
+			final inPorts = this.inPorts.ports;
+			for (portName in inPorts.keys()) {
+				final inPort:InPort = /** @type {InPort} */ cast(inPorts[portName]);
+				inPort.clear();
+			}
 
-				this.bracketContext = new BracketContext();
+			this.bracketContext = new BracketContext();
 
-				if (!this.isStarted()) {
-					return Promise.resolve(null);
-				}
-				this.started = false;
-				this.emit('end');
+			if (!this.isStarted()) {
 				return Promise.resolve(null);
-			});
+			}
+			this.started = false;
+			this.emit('end');
+
+			return Promise.resolve(null);
+		});
 	}
 
 	public function getDescription() {
@@ -352,10 +335,9 @@ class Component extends EventEmitter {
 		Ensures bracket forwarding map is correct for the existing ports
 	**/
 	public function prepareForwarding() {
-		
 		for (inPort in this.forwardBrackets.keys()) {
 			final outPorts = this.forwardBrackets[inPort];
-			
+
 			if (!(this.inPorts.ports.exists(inPort))) {
 				this.forwardBrackets.remove(inPort);
 				return;
@@ -431,9 +413,9 @@ class Component extends EventEmitter {
 	/**
 		Get the current bracket forwarding context for an IP object
 	**/
-	public function getBracketContext(type:String, port:String, scope:String = "_", ?idx:Int):Array<BracketContext> {
+	public function getBracketContext(type:String, port:String, ?scope:String, ?idx:Int):Array<BracketContext> {
 		final x = normalizePortName(port);
-	
+
 		var name = x.name;
 		var index = x.index;
 		if (idx != null) {
@@ -447,16 +429,16 @@ class Component extends EventEmitter {
 			name = port;
 		}
 
-		if(scope == null) scope = "_";
-		
+		if (scope == null)
+			scope = "null";
+
 		// Ensure we have a bracket context for the current scope
 		if (!Reflect.hasField(this.bracketContext[type], name)) {
-			Reflect.setField(this.bracketContext[type], name, {});	
+			Reflect.setField(this.bracketContext[type], name, {});
 		}
-		
-		
-		if(!Reflect.hasField(Reflect.field(this.bracketContext[type], name), scope)){
-			Reflect.setField(Reflect.field(this.bracketContext[type], name), scope, []);	
+
+		if (!Reflect.hasField(Reflect.field(this.bracketContext[type], name), scope)) {
+			Reflect.setField(Reflect.field(this.bracketContext[type], name), scope, []);
 		}
 
 		return Reflect.field(Reflect.field(this.bracketContext[type], name), scope);
@@ -474,10 +456,10 @@ class Component extends EventEmitter {
 		var index = x.index;
 		if (this.outPorts.ports[name].isAddressable()) {
 			final idx = /** @type {number} */ (index != null ? Std.parseInt(index) : ip.index);
-			if (Reflect.field(res, name) == null) {
+			if (!Reflect.hasField(res, name)) {
 				Reflect.setField(res, name, {});
 			}
-			if (Reflect.field(Reflect.field(res, name), '$idx') != null) {
+			if (!Reflect.hasField(Reflect.field(res, name), '$idx')) {
 				Reflect.setField(Reflect.field(res, name), '$idx', []);
 			}
 			ip.index = idx;
@@ -489,14 +471,14 @@ class Component extends EventEmitter {
 			}
 			return;
 		}
-		if (Reflect.field(res, name) == null) {
+		if (!Reflect.hasField(res, name)) {
 			Reflect.setField(res, name, []);
 		}
-		var v:Array<IP> = Reflect.field(res, name);
+
 		if (before) {
-			v.unshift(ip);
+			Reflect.field(res, name).unshift(ip);
 		} else {
-			v.push(ip);
+			Reflect.field(res, name).push(ip);
 		}
 	}
 

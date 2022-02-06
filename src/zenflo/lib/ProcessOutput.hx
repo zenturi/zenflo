@@ -35,7 +35,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 
 	var result:ProcessResult;
 
-	var scope:String;
+	var scope:String = "null";
 
 	#if cpp
 	function debug(msg:String) {
@@ -222,7 +222,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 				final _context:ProcessContext = nodeContext[nodeContext.length - 1];
 				// eslint-disable-next-line max-len
 				final inPorts:InPort = /** @type {import("./InPort").default} */ cast (this.nodeInstance.inPorts.ports[_context.source]);
-				final buf = inPorts.getBuffer(_context.ip.scope, _context.ip.index);
+				final buf:Array<IP> = inPorts.getBuffer(_context.ip.scope, _context.ip.index);
 				while (buf.length > 0 && buf[0].type == CloseBracket) {
 					final ip = inPorts.get(_context.ip.scope, _context.ip.index);
 					final ctx = nodeContext.pop();

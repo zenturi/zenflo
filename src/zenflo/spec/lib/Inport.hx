@@ -90,6 +90,7 @@ class Inport extends buddy.BuddySuite {
 						done();
 					}
 				});
+         
                 #if !cpp haxe.Timer.delay(()->{ #end
                     #if cpp Sys.sleep(0.10);  #end
                     s.send();

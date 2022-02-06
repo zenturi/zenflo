@@ -37,7 +37,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 
 	public var activated:Bool;
 
-	public var scope:String = "_";
+	public var scope:String = "null";
 
 	public var deactivated:Bool;
 
@@ -77,7 +77,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 		This allows components to check which input ports are attached. This is
 		useful mainly for addressable ports
 	**/
-	public function attached(...params:String):Either<Array<Int>, Array<Array<Int>>> {
+	public function attached(...params:String):Array<Dynamic> /* Either<Array<Int>, Array<Array<Int>>> */ {
 		var args = params;
 		if (args.length == 0) {
 			args = ['in'];
@@ -93,9 +93,9 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 		}
 
 		if (args.length == 1) {
-			return Either.Left(res[0]);
+			return res[0];
 		}
-		return Either.Right(res);
+		return res;
 	}
 
 	/**
@@ -124,7 +124,6 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 
 		for (i in 0...args.length) {
 			final port:Dynamic = args[i];
-
 			if (port != null && Std.isOfType(port, Array)) {
 				final portImpl:InPort = /** @type {import("./InPort").default} */ cast(this.ports.ports[port[0]]);
 				if (portImpl == null) {
@@ -162,7 +161,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 	/**
 		Returns true if the ports contain data packets
 	**/
-	public function hasData(...params:String):Bool {
+	public function hasData(...params:Dynamic):Bool {
 		var args = params;
 		if (args.length == 0) {
 			args = ['in'];
@@ -368,29 +367,30 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 			args = ['in'];
 		}
 
+
 		/** @type {Array<any>} */
-		final datas:Array<Any> = [];
+		final datas:Array<Dynamic> = [];
 
 		for (index => port in args) {
-			var packet:IP = /** @type {IP} */ (this.get(port));
+			var packet:Null<IP> = /** @type {IP} */ (this.get(port));
 			if (packet == null) {
 				// we add the null packet to the array so when getting
 				// multiple ports, if one is null we still return it
 				// so the indexes are correct.
 				datas.push(packet);
-				return null;
+				break;
 			}
-
+			
 			while (packet.type != DATA) {
 				packet = /** @type {IP} */ (this.get(port));
 				if (packet == null) {
 					break;
 				}
 			}
-
+			
 			datas.push(packet.data);
 		}
-
+	
 		if (args.length == 1) {
 			return datas.pop();
 		}

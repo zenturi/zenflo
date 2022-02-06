@@ -73,7 +73,8 @@ abstract IP(IPDynamic) from IPDynamic to IPDynamic {
             // cloning safety flag
             clonable: false,
             dataType: "all",
-            initial: false
+            initial: false,
+			scope: "null"
         };
 
         if(Reflect.isObject(options)){

@@ -103,14 +103,14 @@ class InternalSocket extends EventEmitter {
 		} catch (error:SocketError) {
 			if (error.id != null && error.metadata != null && error.error != null) {
 				// Wrapped debuggable error coming from downstream, no need to wrap
-				if (this.listeners.get('error').length == 0) {
+				if (this.listeners.get('$ error').length == 0) {
 					throw error.error;
 				}
 				this.emit('error', error);
 				return;
 			}
 
-			if (this.listeners.get('error').length == 0) {
+			if (this.listeners.get('$ error').length == 0) {
 				throw error;
 			}
 
@@ -224,6 +224,8 @@ class InternalSocket extends EventEmitter {
 		if (autoDisconnect && this.isConnected() && (this.brackets.length == 0)) {
 			(this.disconnect)();
 		}
+
+		return null;
 	}
 
 	/**
@@ -318,7 +320,7 @@ class InternalSocket extends EventEmitter {
 	public function handleSocketEvent(event:String, ?payload:Dynamic, autoConnect = true) {
 		final isIP = (event == 'ip') && IP.isIP(payload);
 		
-		final ip = isIP ? payload : legacyToIP(event, payload);
+		final ip:Null<IP> = isIP ? payload : legacyToIP(event, payload);
 		if (ip == null) {
 			return;
 		}
@@ -344,7 +346,7 @@ class InternalSocket extends EventEmitter {
 			ip.data = this.brackets.pop();
 			payload = ip.data;
 		}
-		if (isIP && (payload.type == IPType.CloseBracket)) {
+		if (isIP && (payload.type == CloseBracket)) {
 			// Prevent closing already closed brackets
 			if (this.brackets.length == 0) {
 				return;
@@ -387,6 +389,6 @@ class InternalSocket extends EventEmitter {
 	}
 }
 
-function createSocket(?metadata:Dynamic, options:Any) {
+function createSocket(?metadata:Dynamic, ?options:Any) {
 	return new InternalSocket(metadata, options);
 }

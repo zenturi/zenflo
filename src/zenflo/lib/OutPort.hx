@@ -154,6 +154,7 @@ class OutPort extends BasePort {
 		}
 
 		final sockets = this.getSockets(idx);
+		
 		this.checkRequired(sockets);
 
 		if (ip.dataType == 'all') {

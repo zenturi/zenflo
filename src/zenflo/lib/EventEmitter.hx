@@ -18,12 +18,12 @@ import rx.Observer;
 using StringTools;
 
 class EventEmitter {
-	var subjects:Map<String, {subject:Subject<Array<Any>>, once:Bool}>;
+	var subjects:Map<String, {subject:Subject<Array<Any>>, once:Bool,  handler:(data:Array<Any>) -> Void}>;
 
 	var listeners:Map<String, Array<Observer<Array<Any>>>>;
 
 	public function new() {
-		subjects = new Map<String, {subject:Subject<Array<Any>>, once:Bool}>();
+		subjects = new Map<String, {subject:Subject<Array<Any>>, once:Bool,  handler:(data:Array<Any>) -> Void}>();
 		listeners = new Map();
 	}
 
@@ -50,7 +50,7 @@ class EventEmitter {
 	public function on(name:String, handler:(data:Array<Any>) -> Void, once:Bool = false) {
 		final fnName = createName(name);
 		if (!this.subjects.exists(fnName)) {
-			this.subjects.set(fnName, {subject: new Subject(), once: once});
+			this.subjects.set(fnName, {subject: new Subject(), once: once, handler: handler});
 		}
 		if(!this.listeners.exists(fnName)) listeners.set(fnName, []);
 		final f = this.subjects.get(fnName);
@@ -69,6 +69,15 @@ class EventEmitter {
 		for (k => v in this.subjects) {
 			v.subject.unsubscribe();
 			this.subjects.remove(k);
+		}
+	}
+
+	public function removeListener(name:String, handler:(data:Array<Any>) -> Void){
+		final fnName = createName(name);
+		if(this.subjects.exists(fnName)){
+			if (this.subjects[fnName].handler  == handler){
+				this.subjects[fnName].subject.unsubscribe();
+			}
 		}
 	}
 }
