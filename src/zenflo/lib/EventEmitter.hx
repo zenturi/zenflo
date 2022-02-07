@@ -3,22 +3,16 @@ package zenflo.lib;
 // import hx.concurrent.Future.FutureResult;
 import haxe.CallStack;
 import haxe.ds.Map;
-
 import rx.Subject;
 import rx.Observer;
 
 using StringTools;
 
-
 /**
  * Todo: This Event emitter implementation is not perfect. It doesn't work for nested listeners. 
  * [NEED A FIX]
  */
-
-
-typedef SubjectMap = {subject:Subject<Array<Any>>, once:Bool,  handler:(data:Array<Any>) -> Void};
-
-
+typedef SubjectMap = {subject:Subject<Array<Any>>, once:Bool, handler:(data:Array<Any>) -> Void};
 
 class EventEmitter {
 	var subjects:Map<String, Array<SubjectMap>>;
@@ -39,24 +33,18 @@ class EventEmitter {
 		if (this.subjects.exists(fnName)) {
 			final x = [for (v in data) v];
 			final fs = this.subjects.get(fnName);
-
-			for(f in fs){
-				if (f != null && f.subject != null) {
-					f.subject.on_next(x);
-				}
-			}
-
-			Lambda.iter(fs, (f)->{
+			Lambda.iter(fs, (f)-> {
+				f.subject.on_next(x);
 				if (f.once) {
 					f.subject.unsubscribe();
-					for(l in this.listeners.get(fnName)){
-						if(l == f.handler){
+					fs.remove(f);
+					Lambda.iter(this.listeners.get(fnName), (l) -> {
+						if (l == f.handler) {
 							this.listeners.get(fnName).remove(l);
 						}
-					}
+					});
 				}
 			});
-			
 		}
 	}
 
@@ -65,11 +53,12 @@ class EventEmitter {
 		if (!this.subjects.exists(fnName)) {
 			this.subjects.set(fnName, [{subject: Subject.create(), once: once, handler: handler}]);
 		}
-		if(!this.listeners.exists(fnName)) listeners.set(fnName, []);
+		if (!this.listeners.exists(fnName))
+			listeners.set(fnName, []);
 		final fs = this.subjects.get(fnName);
 		final sub = Subject.create();
 		sub.subscribe(Observer.create(null, null, handler));
-		fs.push({subject: sub, once: once, handler: handler});
+		fs.unshift({subject: sub, once: once, handler: handler});
 		listeners.get(fnName).push(handler);
 	}
 
@@ -79,19 +68,19 @@ class EventEmitter {
 
 	public function removeAllListeners() {
 		for (k => v in this.subjects) {
-			Lambda.iter(v, (f)->{
+			Lambda.iter(v, (f) -> {
 				f.subject.unsubscribe();
 			});
-			this.subjects.remove(k);
 		}
+		this.subjects.clear();
 	}
 
-	public function removeListener(name:String, handler:(data:Array<Any>) -> Void){
+	public function removeListener(name:String, handler:(data:Array<Any>) -> Void) {
 		final fnName = createName(name);
-		if(this.subjects.exists(fnName)){
+		if (this.subjects.exists(fnName)) {
 			final fs = this.subjects[fnName];
-			Lambda.iter(fs, (f)->{
-				if(f.handler == handler){
+			Lambda.iter(fs, (f) -> {
+				if (f.handler == handler) {
 					f.subject.unsubscribe();
 					fs.remove(f);
 				}

@@ -864,6 +864,7 @@ class Component extends buddy.BuddySuite {
 							port: 'out1',
 							data: ip.data,
 						};
+                        
 						Equal.equals(received, exp).should.be(true);
 						if (expected.length == 0) {
 							done();
@@ -1256,7 +1257,7 @@ class Component extends buddy.BuddySuite {
 						ip.type.should.be('data');
 						ip.data.foo.should.be('foo');
 						ip.data.bar.should.be('bar');
-						// sout1.removeAllListeners();
+						
                         sout1.once('ip', (_ips) -> {
                             final _ip:IP = _ips[0];
                             _ip.should.not.be(null);
@@ -1271,6 +1272,59 @@ class Component extends buddy.BuddySuite {
 					sin2.post(new IP('data', 'bar'));
 					sin1.post(new IP('data', 'boo'));
 				});
+                it('should keep last data-typed IP packet for controls', (done) -> {
+                    c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							foo: {dataType: 'string'},
+							bar: {
+								dataType: 'string',
+								control: true,
+							},
+						}),
+						outPorts: new OutPorts({
+							baz: {dataType: 'object'},
+						}),
+						process: (input, output, _) -> {
+							if (!input.has('foo', 'bar')) {
+								return Promise.NEVER;
+							}
+							final d = input.getData('foo', 'bar');
+							final baz = {
+								foo: d[0],
+								bar: d[1]
+							};
+							output.sendDone({baz: baz});
+
+							return Promise.NEVER;
+						},
+					});
+                    c.inPorts["foo"].attach(sin1);
+                    c.inPorts["bar"].attach(sin2);
+                    c.outPorts["baz"].attach(sout1);
+
+                    sout1.once('ip', (ips) -> {
+						final ip:IP = ips[0];
+						ip.should.not.be(null);
+						ip.type.should.be('data');
+						ip.data.foo.should.be('foo');
+						ip.data.bar.should.be('bar');
+						
+                        sout1.once('ip', (_ips) -> {
+                            final _ip:IP = _ips[0];
+                            _ip.should.not.be(null);
+                            _ip.type.should.be('data');
+                            _ip.data.foo.should.be('boo');
+                            _ip.data.bar.should.be('bar');
+                            done();
+                        });
+					});
+
+                    sin1.post(new IP('data', 'foo'));
+                    sin2.post(new IP('openBracket'));
+                    sin2.post(new IP('data', 'bar'));
+                    sin2.post(new IP('closeBracket'));
+                    sin1.post(new IP('data', 'boo'));
+                });
 			});
 		});
 	}

@@ -1,5 +1,6 @@
 package zenflo.lib;
 
+import tink.core.Ref;
 import haxe.Json;
 import haxe.DynamicAccess;
 
@@ -52,6 +53,7 @@ typedef IPDynamic = {
 	- 'openBracket'
 	- 'closeBracket'
 **/
+
 @:forward
 abstract IP(IPDynamic) from IPDynamic to IPDynamic {
 	/**
@@ -88,17 +90,51 @@ abstract IP(IPDynamic) from IPDynamic to IPDynamic {
 
     /**
         Creates a new IP copying its contents by value not reference
+		[FIX: Haxe does seems to only copy by reference]
     **/
     public function clone():IP {
-        final ip = new IP(this.type, this.data, this.___cloneData);
+		final opts =  Reflect.copy(this.___cloneData);
 		final copy = Reflect.copy(this);
         for (_=> key in Reflect.fields(copy)) {
             final val = Reflect.field(copy, key);
-            if (key == 'owner') { return ip; }
-            if (val == null) { return ip; }
-            Reflect.setField(ip, key, val);
+            if (key == 'owner') { break; }
+            if (val == null) { break; }
+			if (key == "data" && Reflect.isObject(val)) { continue; }
+			if (key == "___cloneData") { continue; }
+            Reflect.setField(opts, key, val);
         }
-        return ip;
+		
+	
+		var d = this.data;
+		if(Reflect.isObject(this.data) && !Std.isOfType(this.data, Array) && !Std.isOfType(this.data, String) && !Std.isOfType(this.data, Float) && !Std.isOfType(this.data, Int) && !Std.isOfType(this.data, Bool)){
+			d = Reflect.copy(this.data);
+			for (_=> key in Reflect.fields(d)) {
+				final val = Reflect.field(d, key);
+				if(Reflect.isFunction(val)){
+					Reflect.setField(d, key, null);
+					continue;
+				}
+				Reflect.setField(d, key, val);
+			}
+			opts["data"] = d;
+		}
+
+		if(Std.isOfType(this.data, Array)){
+			d = [];
+			var arr:Array<Dynamic> = this.data;
+			for(val in arr){
+				if(Reflect.isFunction(val)){
+					continue;
+				}
+				d.push(val);
+			}
+		}
+		
+		
+		// trace(opts);
+        var ip = new IP(this.type, d,  opts);
+		// trace(ip);
+		return ip;
     }
 
 	@:arrayAccess

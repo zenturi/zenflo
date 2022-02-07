@@ -124,7 +124,6 @@ class Outport extends BuddySuite {
 						// Next value should be different
 						s2.once('data', (vals:Array<Any>) -> {
 							final d = vals[0];
-							// failing because of race condition
 							d.should.be('bar');
 							done();
 						});
