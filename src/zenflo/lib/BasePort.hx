@@ -129,7 +129,7 @@ class BasePort extends EventEmitter {
 		if (this.sockets == null)
 			this.sockets = [];
 		this.sockets[idx] = socket;
-
+		
 		this.attachSocket(socket, idx);
 
 		if (this.isAddressable()) {

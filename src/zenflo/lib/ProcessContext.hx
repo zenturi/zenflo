@@ -25,7 +25,7 @@ typedef TProcessContext = {
 
 	public var ?activated:Bool;
 
-	public var ?scope:String;
+	public var ?scope:Dynamic;
 
 	public var ?deactivated:Bool;
 	public var ?source:String;

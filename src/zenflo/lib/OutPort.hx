@@ -146,6 +146,7 @@ class OutPort extends BasePort {
 				{
 					ip = v;
 					idx = ip.index;
+					
 				}
 			case Right(v):
 				{

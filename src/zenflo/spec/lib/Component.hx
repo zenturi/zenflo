@@ -218,13 +218,13 @@ class Component extends buddy.BuddySuite {
 						outPorts: new OutPorts(o),
 						process: (input:ProcessInput, output:ProcessOutput, ctx:ProcessContext) -> {
 							if (!input.hasData('in')) {
-								return null;
+								return Promise.NEVER;
 							}
 
 							final packet:Any = input.getData('in');
 							packet.should.be('some-data');
 							output.done(new Error(""));
-							return null;
+							return Promise.NEVER;
 						}
 					});
 
@@ -864,7 +864,7 @@ class Component extends buddy.BuddySuite {
 							port: 'out1',
 							data: ip.data,
 						};
-                        
+
 						Equal.equals(received, exp).should.be(true);
 						if (expected.length == 0) {
 							done();
@@ -1257,23 +1257,23 @@ class Component extends buddy.BuddySuite {
 						ip.type.should.be('data');
 						ip.data.foo.should.be('foo');
 						ip.data.bar.should.be('bar');
-						
-                        sout1.once('ip', (_ips) -> {
-                            final _ip:IP = _ips[0];
-                            _ip.should.not.be(null);
-                            _ip.type.should.be('data');
-                            _ip.data.foo.should.be('boo');
-                            _ip.data.bar.should.be('bar');
-                            done();
-                        });
+
+						sout1.once('ip', (_ips) -> {
+							final _ip:IP = _ips[0];
+							_ip.should.not.be(null);
+							_ip.type.should.be('data');
+							_ip.data.foo.should.be('boo');
+							_ip.data.bar.should.be('bar');
+							done();
+						});
 					});
 
 					sin1.post(new IP('data', 'foo'));
 					sin2.post(new IP('data', 'bar'));
 					sin1.post(new IP('data', 'boo'));
 				});
-                it('should keep last data-typed IP packet for controls', (done) -> {
-                    c = new zenflo.lib.Component({
+				it('should keep last data-typed IP packet for controls', (done) -> {
+					c = new zenflo.lib.Component({
 						inPorts: new InPorts({
 							foo: {dataType: 'string'},
 							bar: {
@@ -1298,33 +1298,773 @@ class Component extends buddy.BuddySuite {
 							return Promise.NEVER;
 						},
 					});
-                    c.inPorts["foo"].attach(sin1);
-                    c.inPorts["bar"].attach(sin2);
-                    c.outPorts["baz"].attach(sout1);
+					c.inPorts["foo"].attach(sin1);
+					c.inPorts["bar"].attach(sin2);
+					c.outPorts["baz"].attach(sout1);
 
-                    sout1.once('ip', (ips) -> {
+					sout1.once('ip', (ips) -> {
 						final ip:IP = ips[0];
 						ip.should.not.be(null);
 						ip.type.should.be('data');
 						ip.data.foo.should.be('foo');
 						ip.data.bar.should.be('bar');
-						
-                        sout1.once('ip', (_ips) -> {
-                            final _ip:IP = _ips[0];
-                            _ip.should.not.be(null);
-                            _ip.type.should.be('data');
-                            _ip.data.foo.should.be('boo');
-                            _ip.data.bar.should.be('bar');
-                            done();
-                        });
+
+						sout1.once('ip', (_ips) -> {
+							final _ip:IP = _ips[0];
+							_ip.should.not.be(null);
+							_ip.type.should.be('data');
+							_ip.data.foo.should.be('boo');
+							_ip.data.bar.should.be('bar');
+							done();
+						});
 					});
 
-                    sin1.post(new IP('data', 'foo'));
-                    sin2.post(new IP('openBracket'));
-                    sin2.post(new IP('data', 'bar'));
-                    sin2.post(new IP('closeBracket'));
-                    sin1.post(new IP('data', 'boo'));
-                });
+					sin1.post(new IP('data', 'foo'));
+					sin2.post(new IP('openBracket'));
+					sin2.post(new IP('data', 'bar'));
+					sin2.post(new IP('closeBracket'));
+					sin1.post(new IP('data', 'boo'));
+				});
+				it('should isolate packets with different scopes', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							foo: {dataType: 'string'},
+							bar: {dataType: 'string'},
+						}),
+						outPorts: new OutPorts({
+							baz: {dataType: 'string'},
+						}),
+						process: (input, output, _) -> {
+							if (!input.has('foo', 'bar')) {
+								return Promise.NEVER;
+							}
+							final d = input.getData('foo', 'bar');
+							final baz = {
+								foo: d[0],
+								bar: d[1]
+							};
+							output.sendDone({baz: '${baz.foo} and ${baz.bar}'});
+							return Promise.NEVER;
+						},
+					});
+
+					c.inPorts["foo"].attach(sin1);
+					c.inPorts["bar"].attach(sin2);
+					c.outPorts["baz"].attach(sout1);
+
+					sout1.once('ip', (ips) -> {
+						final ip:IP = ips[0];
+						ip.should.not.be(null);
+						ip.type.should.be('data');
+						ip.scope.should.be('1');
+						ip.data.should.be('Josh and Laura');
+
+						sout1.once('ip', (ips) -> {
+							final ip:IP = ips[0];
+							ip.should.not.be(null);
+							ip.type.should.be('data');
+							ip.scope.should.be('2');
+							ip.data.should.be('Jane and Luke');
+							done();
+						});
+					});
+
+					sin1.post(new IP('data', 'Josh', {scope: '1'}));
+					sin2.post(new IP('data', 'Luke', {scope: '2'}));
+					sin2.post(new IP('data', 'Laura', {scope: '1'}));
+					sin1.post(new IP('data', 'Jane', {scope: '2'}));
+				});
+				it('should be able to change scope', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							foo: {dataType: 'string'},
+						}),
+						outPorts: new OutPorts({
+							baz: {dataType: 'string'},
+						}),
+						process: (input, output, _) -> {
+							final foo = input.getData('foo');
+							output.sendDone({baz: new IP('data', foo, {scope: 'baz'})});
+							return Promise.NEVER;
+						},
+					});
+
+					c.inPorts["foo"].attach(sin1);
+					c.outPorts["baz"].attach(sout1);
+
+					sout1.once('ip', (ips) -> {
+						final ip:IP = ips[0];
+						ip.should.not.be(null);
+						ip.type.should.be('data');
+						ip.scope.should.be('baz');
+						ip.data.should.be('foo');
+						done();
+					});
+
+					sin1.post(new IP('data', 'foo', {scope: 'foo'}));
+				});
+				it('should support integer scopes', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							foo: {dataType: 'string'},
+							bar: {dataType: 'string'},
+						}),
+						outPorts: new OutPorts({
+							baz: {dataType: 'string'},
+						}),
+						process: (input, output, _) -> {
+							if (!input.has('foo', 'bar')) {
+								return Promise.NEVER;
+							}
+							final d = input.getData('foo', 'bar');
+							output.sendDone({baz: '${d[0]} and ${d[1]}'});
+
+							return Promise.NEVER;
+						},
+					});
+
+					c.inPorts["foo"].attach(sin1);
+					c.inPorts["bar"].attach(sin2);
+					c.outPorts["baz"].attach(sout1);
+
+					sout1.once('ip', (ips) -> {
+						final ip:IP = ips[0];
+						ip.should.not.be(null);
+						ip.type.should.be('data');
+						ip.scope.should.be(1);
+						ip.data.should.be('Josh and Laura');
+						sout1.once('ip', (ips) -> {
+							final ip:IP = ips[0];
+							ip.should.not.be(null);
+							ip.type.should.be('data');
+							ip.scope.should.be(0);
+							ip.data.should.be('Jane and Luke');
+							sout1.once('ip', (ips) -> {
+								final ip:IP = ips[0];
+								ip.should.not.be(null);
+								ip.type.should.be('data');
+								ip.scope.should.be(null);
+								ip.data.should.be('Tom and Anna');
+								done();
+							});
+						});
+					});
+
+					sin1.post(new IP('data', 'Tom'));
+					sin1.post(new IP('data', 'Josh', {scope: 1}));
+					sin2.post(new IP('data', 'Luke', {scope: 0}));
+					sin2.post(new IP('data', 'Laura', {scope: 1}));
+					sin1.post(new IP('data', 'Jane', {scope: 0}));
+					sin2.post(new IP('data', 'Anna'));
+				});
+				it('should preserve order between input and output', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							msg: {dataType: 'string'},
+							delay: {dataType: 'int'},
+						}),
+						outPorts: new OutPorts({
+							out: {dataType: 'object'},
+						}),
+						ordered: true,
+						process: (input, output, _) -> {
+							if (!input.has('msg', 'delay')) {
+								return Promise.NEVER;
+							}
+							final d = input.getData('msg', 'delay');
+							final msg:Any = d[0];
+							final delay:Any = d[1];
+							haxe.Timer.delay(() -> {
+								final data = {out: {msg: msg, delay: delay}};
+								output.sendDone(data);
+							}, delay);
+							return Promise.NEVER;
+						},
+					});
+
+					c.inPorts["msg"].attach(sin1);
+					c.inPorts["delay"].attach(sin2);
+					c.outPorts["out"].attach(sout1);
+
+					final sample = [
+						{delay: 30, msg: 'one'},
+						{delay: 0, msg: 'two'},
+						{delay: 20, msg: 'three'},
+						{delay: 10, msg: 'four'}
+					];
+
+					sout1.on('ip', (ips) -> {
+						final ip:IP = ips[0];
+						Equal.equals(ip.data, sample.shift()).should.be(true);
+						if (sample.length == 0) {
+							done();
+						}
+					});
+
+					for (ip in sample) {
+						sin1.post(new IP('data', ip.msg));
+						sin2.post(new IP('data', ip.delay));
+					}
+				});
+				it('should ignore order between input and output', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							msg: {dataType: 'string'},
+							delay: {dataType: 'int'},
+						}),
+						outPorts: new OutPorts({
+							out: {dataType: 'object'},
+						}),
+						ordered: false,
+						process: (input, output, _) -> {
+							if (!input.has('msg', 'delay')) {
+								return Promise.NEVER;
+							}
+							final d = input.getData('msg', 'delay');
+							final msg:Any = d[0];
+							final delay:Any = d[1];
+							haxe.Timer.delay(() -> {
+								final data = {out: {msg: msg, delay: delay}};
+								output.sendDone(data);
+							}, delay);
+							return Promise.NEVER;
+						},
+					});
+
+					c.inPorts["msg"].attach(sin1);
+					c.inPorts["delay"].attach(sin2);
+					c.outPorts["out"].attach(sout1);
+
+					final sample = [
+						{delay: 30, msg: 'one'},
+						{delay: 0, msg: 'two'},
+						{delay: 20, msg: 'three'},
+						{delay: 10, msg: 'four'},
+					];
+
+					var count = 0;
+					sout1.on('ip', (ips) -> {
+						final ip:IP = ips[0];
+						var src = {};
+						count++;
+						switch (count) {
+							case 1:
+								src = sample[1];
+							case 2:
+								src = sample[3];
+							case 3:
+								src = sample[2];
+							case 4:
+								src = sample[0];
+						}
+						Equal.equals(ip.data, src).should.be(true);
+						if (count == 4) {
+							done();
+						}
+					});
+
+					for (ip in sample) {
+						sin1.post(new IP('data', ip.msg));
+						sin2.post(new IP('data', ip.delay));
+					}
+				});
+				it('should throw errors if there is no error port', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							"in": {
+								dataType: 'string',
+								required: true,
+							}
+						}),
+						process: (input, output, _) -> {
+							final packet:Dynamic = input.get('in');
+							packet.data.should.be('some-data');
+							try {
+								final e = new Error('Should fail');
+								output.done(e);
+								fail(e);
+							} catch (e) {
+								done();
+							}
+							return Promise.NEVER;
+						},
+					});
+
+					c.inPorts["in"].attach(sin1);
+					sin1.post(new IP('data', 'some-data'));
+				});
+				it('should throw errors if there is a non-attached error port', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							"in": {
+								dataType: 'string',
+								required: true,
+							},
+						}),
+						outPorts: new OutPorts({
+							error: {
+								dataType: 'object',
+								required: true,
+							},
+						}),
+						process: (input, output, _) -> {
+							final packet:Dynamic = input.get('in');
+							packet.data.should.be('some-data');
+							try {
+								final e = new Error('Should fail');
+								output.sendDone(e);
+								fail(e);
+							} catch (e) {
+								done();
+							}
+							return Promise.NEVER;
+						},
+					});
+
+					c.inPorts["in"].attach(sin1);
+					sin1.post(new IP('data', 'some-data'));
+				});
+				it('should not throw errors if there is a non-required error port', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							"in": {
+								dataType: 'string',
+								required: true,
+							},
+						}),
+						outPorts: new OutPorts({
+							error: {
+								required: false,
+							},
+						}),
+						process: (input, output, _) -> {
+							final packet:Dynamic = input.get('in');
+							packet.data.should.be('some-data');
+							output.sendDone(new Error('Should not fail'));
+							done();
+							return Promise.NEVER;
+						},
+					});
+
+					c.inPorts["in"].attach(sin1);
+					sin1.post(new IP('data', 'some-data'));
+				});
+				it('should send out string other port if there is only one port aside from error', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							"in": {
+								dataType: 'all',
+								required: true,
+							},
+						}),
+						outPorts: new OutPorts({
+							out: {
+								required: true,
+							},
+							error: {
+								required: false,
+							},
+						}),
+						process: (input, output, _) -> {
+							input.get('in');
+							output.sendDone('some data');
+							return Promise.NEVER;
+						},
+					});
+
+					sout1.on('ip', (ips) -> {
+						final ip:IP = ips[0];
+						ip.should.not.be(null);
+						ip.data.should.be('some data');
+						done();
+					});
+
+					c.inPorts["in"].attach(sin1);
+					c.outPorts["out"].attach(sout1);
+
+					sin1.post(new IP('data', 'first'));
+				});
+				it('should send object out other port if there is only one port aside from error', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							"in": {
+								dataType: 'all',
+								required: true,
+							},
+						}),
+						outPorts: new OutPorts({
+							out: {
+								required: true,
+							},
+							error: {
+								required: false,
+							},
+						}),
+						process: (input, output, _) -> {
+							input.get('in');
+							output.sendDone({some: 'data'});
+							return Promise.NEVER;
+						},
+					});
+
+					sout1.on('ip', (ips) -> {
+						final ip:IP = ips[0];
+						ip.should.not.be(null);
+						Equal.equals(ip.data, {some: 'data'}).should.be(true);
+						done();
+					});
+
+					c.inPorts["in"].attach(sin1);
+					c.outPorts["out"].attach(sout1);
+
+					sin1.post(new IP('data', 'first'));
+				});
+				it('should throw an error if sending without specifying a port and there are multiple ports', (done) -> {
+					final f = function() {
+						c = new zenflo.lib.Component({
+							inPorts: new InPorts({
+								"in": {
+									dataType: 'string',
+									required: true,
+								},
+							}),
+							outPorts: new OutPorts({
+								out: {
+									dataType: 'all',
+								},
+								eh: {
+									required: false,
+								},
+							}),
+							process: (input, output, _) -> {
+								output.sendDone('test');
+								return Promise.NEVER;
+							},
+						});
+
+						c.inPorts["in"].attach(sin1);
+						sin1.post(new IP('data', 'some-data'));
+					};
+					try {
+						f();
+						fail(new Error("should throw"));
+					} catch (e) {
+						done();
+					}
+				});
+				it('should send errors if there is a connected error port', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							"in": {
+								dataType: 'string',
+								required: true,
+							},
+						}),
+						outPorts: new OutPorts({
+							error: {
+								dataType: 'object',
+							},
+						}),
+						process: (input, output, _) -> {
+							final packet:Dynamic = input.get('in');
+							packet.data.should.be('some-data');
+							packet.scope.should.be('some-scope');
+							output.sendDone(new Error('Should fail'));
+							return Promise.NEVER;
+						},
+					});
+
+					sout1.on('ip', (ips) -> {
+						final ip:IP = ips[0];
+						ip.should.not.be(null);
+						ip.data.should.beType(Error);
+						ip.scope.should.be('some-scope');
+						done();
+					});
+
+					c.inPorts["in"].attach(sin1);
+					c.outPorts["error"].attach(sout1);
+					sin1.post(new IP('data', 'some-data', {scope: 'some-scope'}));
+				});
+				it('should send substreams with multiple errors per activation', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							"in": {
+								dataType: 'string',
+								required: true,
+							},
+						}),
+						outPorts: new OutPorts({
+							error: {
+								dataType: 'object',
+							},
+						}),
+						process: (input, output, _) -> {
+							final packet:Dynamic = input.get('in');
+							packet.data.should.be('some-data');
+							packet.scope.should.be('some-scope');
+							final errors = [];
+							errors.push(new Error('One thing is invalid'));
+							errors.push(new Error('Another thing is invalid'));
+							output.sendDone(errors);
+							return Promise.NEVER;
+						},
+					});
+
+					final expected = ['<', 'One thing is invalid', 'Another thing is invalid', '>',];
+					final actual = [];
+					var count = 0;
+
+					sout1.on('ip', (ips) -> {
+						final ip:IP = ips[0];
+						count++;
+						ip.should.not.be(null);
+						ip.scope.should.be('some-scope');
+						switch (ip.type) {
+							case OpenBracket: actual.push('<');
+							case CloseBracket: actual.push('>');
+							case DATA: {
+									ip.data.should.beType(Error);
+									actual.push(ip.data.message);
+								}
+						}
+
+						if (count == 4) {
+							Equal.equals(actual, expected).should.be(true);
+							done();
+						}
+					});
+
+					c.inPorts["in"].attach(sin1);
+					c.outPorts["error"].attach(sout1);
+					sin1.post(new IP('data', 'some-data', {scope: 'some-scope'}));
+				});
+				it('should forward brackets for map-style components', (done) -> {
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({
+							"in": {
+								dataType: 'string',
+							},
+						}),
+						outPorts: new OutPorts({
+							out: {
+								dataType: 'string',
+							},
+							error: {
+								dataType: 'object',
+							},
+						}),
+						process: (input, output, _) -> {
+							final str:Dynamic = input.getData();
+							if (!Std.isOfType(str, String)) {
+								output.sendDone(new Error('Input is not string'));
+								return Promise.NEVER;
+							}
+							output.pass(cast(str, String).toUpperCase());
+							return Promise.NEVER;
+						},
+					});
+
+					c.inPorts["in"].attach(sin1);
+					c.outPorts["out"].attach(sout1);
+					c.outPorts["error"].attach(sout2);
+
+					final source = ['<', 'foo', 'bar', '>',];
+					var count = 0;
+
+					sout1.on('ip', (ips) -> {
+						final ip:IP = ips[0];
+						final data = switch (ip.type) {
+							case OpenBracket: '<';
+							case CloseBracket: '>';
+							default: ip.data;
+						};
+						data.should.be(source[count].toUpperCase());
+						count++;
+						if (count == 4) {
+							done();
+						}
+					});
+
+					sout2.on('ip', (ips) -> {
+						final ip:IP = ips[0];
+						if (ip.type != 'data') {
+							return;
+						}
+						trace('Unexpected error', ip);
+						fail(ip.data);
+					});
+
+					for (data in source) {
+						switch (data) {
+							case '<':
+								sin1.post(new IP(OpenBracket));
+							case '>':
+								sin1.post(new IP(CloseBracket));
+							default:
+								sin1.post(new IP(DATA, data));
+						}
+					}
+				});
+				it('should forward brackets for map-style components with addressable outport', (done) -> {
+					var sent = false;
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({ "in": {
+							dataType: 'string',
+						},
+					}),
+						outPorts: new OutPorts({
+							out: {
+								dataType: 'string',
+								addressable: true,
+							},
+						}),
+						process:(input, output, _) -> {
+							if (!input.hasData()) { return Promise.NEVER; }
+							final string = input.getData();
+							final idx = sent ? 0 : 1;
+							sent = true;
+							output.sendDone(new IP('data', string, { index: idx }));
+							return Promise.NEVER;
+						},
+					});
+		
+					c.inPorts["in"].attach(sin1);
+					c.outPorts["out"].attach(sout1, 1);
+					c.outPorts["out"].attach(sout2, 0);
+		
+					final expected = [
+						'1 < a',
+						'1 < foo',
+						'1 DATA first',
+						'1 > foo',
+						'0 < a',
+						'0 < bar',
+						'0 DATA second',
+						'0 > bar',
+						'0 > a',
+						'1 > a',
+					];
+					final received = [];
+					sout1.on('ip', (ips) -> {
+						final ip:IP = ips[0];
+						switch (ip.type) {
+							case OpenBracket:
+								received.push('1 < ${ip.data}');
+							case DATA:
+								received.push('1 DATA ${ip.data}');
+							case CloseBracket:
+								received.push('1 > ${ip.data}');
+						}
+						if (received.length != expected.length) { return; }
+						Equal.equals(received, expected).should.be(true);
+						done();
+					});
+					sout2.on('ip', (ips) -> {
+						final ip:IP = ips[0];
+						switch (ip.type) {
+							case OpenBracket:
+								received.push('0 < ${ip.data}');
+							case DATA:
+								received.push('0 DATA ${ip.data}');
+							case CloseBracket:
+								received.push('0 > ${ip.data}');
+						}
+						
+						if (received.length != expected.length) { return; }
+						Equal.equals(received, expected).should.be(true);
+						done();
+					});
+		
+					sin1.post(new IP('openBracket', 'a'));
+					sin1.post(new IP('openBracket', 'foo'));
+					sin1.post(new IP('data', 'first'));
+					sin1.post(new IP('closeBracket', 'foo'));
+					sin1.post(new IP('openBracket', 'bar'));
+					sin1.post(new IP('data', 'second'));
+					sin1.post(new IP('closeBracket', 'bar'));
+					sin1.post(new IP('closeBracket', 'a'));
+				});
+
+				it('should forward brackets for async map-style components with addressable outport', (done) -> {
+					var sent = false;
+					c = new zenflo.lib.Component({
+						inPorts: new InPorts({ "in": {
+							dataType: 'string',
+						},
+					}),
+						outPorts: new OutPorts({
+							out: {
+								dataType: 'string',
+								addressable: true,
+							},
+						}),
+						process:(input, output, _) -> {
+							if (!input.hasData()) { return Promise.NEVER; }
+							final string = input.getData();
+							final idx = sent ? 0 : 1;
+							sent = true;
+							haxe.Timer.delay(()-> output.sendDone(new IP('data', string, { index: idx })), 1);
+							return Promise.NEVER;
+						},
+					});
+		
+					c.inPorts["in"].attach(sin1);
+					c.outPorts["out"].attach(sout1, 1);
+					c.outPorts["out"].attach(sout2, 0);
+		
+					final expected = [
+						'1 < a',
+						'1 < foo',
+						'1 DATA first',
+						'1 > foo',
+						'0 < a',
+						'0 < bar',
+						'0 DATA second',
+						'0 > bar',
+						'0 > a',
+						'1 > a',
+					];
+					final received = [];
+					sout1.on('ip', (ips) -> {
+						final ip:IP = ips[0];
+						switch (ip.type) {
+							case OpenBracket:
+								received.push('1 < ${ip.data}');
+							case DATA:
+								received.push('1 DATA ${ip.data}');
+							case CloseBracket:
+								received.push('1 > ${ip.data}');
+						}
+						if (received.length != expected.length) { return; }
+						Equal.equals(received, expected).should.be(true);
+						done();
+					});
+					sout2.on('ip', (ips) -> {
+						final ip:IP = ips[0];
+						switch (ip.type) {
+							case OpenBracket:
+								received.push('0 < ${ip.data}');
+							case DATA:
+								received.push('0 DATA ${ip.data}');
+							case CloseBracket:
+								received.push('0 > ${ip.data}');
+						}
+						
+						if (received.length != expected.length) { return; }
+						Equal.equals(received, expected).should.be(true);
+						done();
+					});
+		
+					sin1.post(new IP('openBracket', 'a'));
+					sin1.post(new IP('openBracket', 'foo'));
+					sin1.post(new IP('data', 'first'));
+					sin1.post(new IP('closeBracket', 'foo'));
+					sin1.post(new IP('openBracket', 'bar'));
+					sin1.post(new IP('data', 'second'));
+					sin1.post(new IP('closeBracket', 'bar'));
+					sin1.post(new IP('closeBracket', 'a'));
+				});
 			});
 		});
 	}

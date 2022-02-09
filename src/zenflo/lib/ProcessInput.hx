@@ -37,7 +37,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 
 	public var activated:Bool;
 
-	public var scope:String = "null";
+	public var scope:Dynamic;
 
 	public var deactivated:Bool;
 

@@ -41,17 +41,17 @@ function ipToLegacy(ip:IP) {
 		case OpenBracket:
 			return {
 				event: 'begingroup',
-				payload: ip.data,
+				payload: ip.data
 			};
 		case DATA:
 			return {
 				event: 'data',
-				payload: ip.data,
+				payload: ip.data
 			};
 		case CloseBracket:
 			return {
 				event: 'endgroup',
-				payload: ip.data,
+				payload: ip.data
 			};
 		default:
 			return null;
@@ -61,7 +61,7 @@ function ipToLegacy(ip:IP) {
 class InternalSocket extends EventEmitter {
 	public var metadata:Null<Dynamic>;
 
-	public var brackets:Array<Any>;
+	public var brackets:Array<Dynamic>;
 
 	public var connected:Bool;
 
@@ -77,18 +77,18 @@ class InternalSocket extends EventEmitter {
 
 	public function new(?metadata:Dynamic, ?options:InternalSocketOptions) {
 		super();
-		if(metadata != null){
+		if (metadata != null) {
 			this.metadata = metadata;
 		}
-		
+
 		this.brackets = [];
 		this.connected = false;
 		this.dataDelegate = null;
-		if(options != null){
+		if (options != null) {
 			this.debug = options.debug || false;
 			this.async = options.async || false;
 		}
-		
+
 		this.from = null;
 		this.to = null;
 	}
@@ -135,6 +135,7 @@ class InternalSocket extends EventEmitter {
 			Timer.delay(() -> this.regularEmitEvent(event, data), 0);
 			return;
 		}
+		
 		
 		this.regularEmitEvent(event, data);
 	}
@@ -203,11 +204,15 @@ class InternalSocket extends EventEmitter {
 		message queues can be used as additional packet relay mechanisms.
 	**/
 	public function send(?data:Any) {
-		if (data == null && Reflect.isFunction(this.dataDelegate)) {
-			this.handleSocketEvent('data', this.dataDelegate());
-			return;
+		try{
+			if (data == null && Reflect.isFunction(this.dataDelegate)) {
+				this.handleSocketEvent('data', this.dataDelegate());
+				return;
+			}
+			this.handleSocketEvent('data', data);
+		}catch(e){
+			throw e;
 		}
-		this.handleSocketEvent('data', data);
 	}
 
 	public function post(packet:Dynamic, autoDisconnect = true) {
@@ -218,8 +223,9 @@ class InternalSocket extends EventEmitter {
 		}
 		// Send legacy connect/disconnect if needed
 		if (!this.isConnected() && (this.brackets.length == 0)) {
-			(this.connect)();
+			this.connect();
 		}
+	
 		this.handleSocketEvent('ip', ip, false);
 		if (autoDisconnect && this.isConnected() && (this.brackets.length == 0)) {
 			(this.disconnect)();
@@ -319,12 +325,13 @@ class InternalSocket extends EventEmitter {
 
 	public function handleSocketEvent(event:String, ?payload:Dynamic, autoConnect = true) {
 		final isIP = (event == 'ip') && IP.isIP(payload);
-		
+	
 		final ip:Null<IP> = isIP ? payload : legacyToIP(event, payload);
 		if (ip == null) {
 			return;
 		}
 
+	
 		if (!this.isConnected() && autoConnect && (this.brackets.length == 0)) {
 			// Connect before sending
 			this.connect();
@@ -336,7 +343,7 @@ class InternalSocket extends EventEmitter {
 		if (isIP && (ip.type == OpenBracket)) {
 			this.brackets.push(ip.data);
 		}
-
+		
 		if (event == 'endgroup') {
 			// Prevent closing already closed groups
 			if (this.brackets.length == 0) {
@@ -353,14 +360,15 @@ class InternalSocket extends EventEmitter {
 			}
 			this.brackets.pop();
 		}
-
+		
+	
 		// Emit the IP Object
 		this.emitEvent('ip', ip);
 		// Emit the legacy event
 		if (ip == null || ip.type == null) {
 			return;
 		}
-		
+
 		if (isIP) {
 			final legacy = ipToLegacy(ip);
 			event = legacy.event;

@@ -87,4 +87,9 @@ class EventEmitter {
 			});
 		}
 	}
+
+	public function hasSubject(name:String) {
+		final fnName = createName(name);
+		return this.subjects.exists(fnName);
+	}
 }

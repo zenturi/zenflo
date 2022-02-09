@@ -33,7 +33,7 @@ abstract BracketContext(Dynamic) from Dynamic to Dynamic {
 	}
 
 	@:arrayAccess
-	public function getField(key:String):Dynamic {
+	public function getField(key:String):Any {
 		return Reflect.field(this, key);
 	}
 }
@@ -212,7 +212,6 @@ class Component extends EventEmitter {
 					this.removeListener('deactivate', checkLoad);
 					resolve(null);
 				};
-
 				this.on('deactivate', checkLoad);
 				return null;
 			} else {
@@ -335,9 +334,11 @@ class Component extends EventEmitter {
 		Ensures bracket forwarding map is correct for the existing ports
 	**/
 	public function prepareForwarding() {
+		
 		for (inPort in this.forwardBrackets.keys()) {
+			
 			final outPorts = this.forwardBrackets[inPort];
-
+		
 			if (!(this.inPorts.ports.exists(inPort))) {
 				this.forwardBrackets.remove(inPort);
 				return;
@@ -387,6 +388,7 @@ class Component extends EventEmitter {
 		} // prevent double deactivation
 		context.deactivated = true;
 		context.activated = false;
+	
 		if (this.isOrdered()) {
 			this.processOutputQueue();
 		}
@@ -454,20 +456,21 @@ class Component extends EventEmitter {
 		final x = normalizePortName(port);
 		var name = x.name;
 		var index = x.index;
+		
 		if (this.outPorts.ports[name].isAddressable()) {
-			final idx = /** @type {number} */ (index != null ? Std.parseInt(index) : ip.index);
+			final idx = /** @type {number} */ (index != null && index.length != 0 ? Std.parseInt(index) : ip.index);
 			if (!Reflect.hasField(res, name)) {
 				Reflect.setField(res, name, {});
 			}
 			if (!Reflect.hasField(Reflect.field(res, name), '$idx')) {
 				Reflect.setField(Reflect.field(res, name), '$idx', []);
 			}
+			
 			ip.index = idx;
-			var v:Array<IP> = Reflect.field(Reflect.field(res, name), '$idx');
 			if (before) {
-				v.unshift(ip);
+				Reflect.field(Reflect.field(res, name), '$idx').unshift(ip);
 			} else {
-				v.push(ip);
+				Reflect.field(Reflect.field(res, name), '$idx').push(ip);
 			}
 			return;
 		}
@@ -486,7 +489,7 @@ class Component extends EventEmitter {
 		Get contexts that can be forwarded with this in/outport
 		pair.
 	**/
-	public function getForwardableContexts(inport:Dynamic, outport:Dynamic, contexts:Array<ProcessContext>) {
+	public function getForwardableContexts(inport:Dynamic, outport:Dynamic, contexts:Array<ProcessContext>):Array<ProcessContext> {
 		var x = normalizePortName(outport);
 		var index = x.index;
 		var name = x.name;
@@ -496,17 +499,20 @@ class Component extends EventEmitter {
 		for (idx => ctx in contexts) {
 			// No forwarding to this outport
 			if (!this.isForwardingOutport(inport, name)) {
-				return [];
+				continue;
 			}
 			// We have already forwarded this context to this outport
 			if (ctx.ports.indexOf(outport) != -1) {
-				return [];
+				continue;
 			}
 			// See if we have already forwarded the same bracket from another
 			// inport
-			final outContext = this.getBracketContext('out', name, ctx.ip.scope, Std.parseInt(index))[idx];
+			final outContext:BracketContext = this.getBracketContext('out', name, ctx.ip.scope, Std.parseInt(index))[idx];
+	
 			if (outContext != null) {
-				if ((outContext["ip"].data == ctx.ip.data) && (outContext["ports"].indexOf(outport) != -1)) {
+				final ip:IP = outContext["ip"];
+				final ports:Array<Any> = outContext["ports"];
+				if ((ip.data == ctx.ip.data) && (ports.indexOf(outport) != -1)) {
 					return [];
 				}
 			}
@@ -525,9 +531,9 @@ class Component extends EventEmitter {
 
 	public var started:Bool;
 
-	public var ordered:Bool;
+	public var ordered:Bool = false;
 
-	public var autoOrdering:Bool;
+	public var autoOrdering:Bool = false;
 
 	public var activateOnInput:Bool;
 
@@ -547,7 +553,6 @@ class Component extends EventEmitter {
 			}
 			port.on('ip', (ips) -> {
 				final ip = ips[0];
-				// trace(ip);
 				this.handleIP(ip, port);
 			});
 		}
@@ -578,12 +583,12 @@ class Component extends EventEmitter {
 	public function isForwardingOutport(inport:Dynamic, outport:Dynamic) {
 		var inportName:String = null;
 		var outportName:String = null;
-		if (Std.isOfType(inport, 'string')) {
+		if (Std.isOfType(inport, String)) {
 			inportName = inport;
 		} else {
 			inportName = inport.name;
 		}
-		if (Std.isOfType(outport, 'string')) {
+		if (Std.isOfType(outport, String)) {
 			outportName = outport;
 		} else {
 			outportName = outport.name;
@@ -591,7 +596,8 @@ class Component extends EventEmitter {
 		if (inportName == null || outportName == null) {
 			return false;
 		}
-		if (this.forwardBrackets.exists(inportName)) {
+	
+		if (!this.forwardBrackets.exists(inportName)) {
 			return false;
 		}
 		if (this.forwardBrackets[inportName].indexOf(outportName) != -1) {
@@ -620,7 +626,7 @@ class Component extends EventEmitter {
 			return;
 		}
 
-		if (ip.type == OpenBracket && this.autoOrdering && !this.ordered) {
+		if (ip.type == OpenBracket && !this.autoOrdering && !this.ordered) {
 			// Switch component to ordered mode when receiving a stream unless
 			// auto-ordering is disabled
 			debugComponent('${this.nodeId} port \'${port.name}\' entered auto-ordering mode');
@@ -727,24 +733,29 @@ class Component extends EventEmitter {
 		output from the queue in the order it is in.
 	**/
 	function processOutputQueue() {
+		
 		while (this.outputQ.length > 0) {
+			
 			if (!this.outputQ[0].__resolved) {
 				break;
 			}
+			
 			final result = this.outputQ.shift();
+		
 			this.addBracketForwards(result);
 			for (port in Reflect.fields(result)) {
 				var portIdentifier = null;
 				final ips:Dynamic = Reflect.field(result, port);
 				if (port.indexOf('__') == 0) {
-					return;
+					continue;
 				}
+				
 				if (this.outPorts.ports[port].isAddressable()) {
 					for (index in Reflect.fields(ips)) {
 						final idxIps:Array<IP> = Reflect.field(ips, index);
 						final idx = Std.parseInt(index);
 						if (!this.outPorts.ports[port].isAttached(idx)) {
-							return;
+							continue;
 						}
 						for (packet in idxIps) {
 							final ip = packet;
@@ -763,10 +774,10 @@ class Component extends EventEmitter {
 							out.sendIP(Either.Left(ip));
 						};
 					}
-					return;
+					continue;
 				}
 				if (!this.outPorts.ports[port].isAttached()) {
-					return;
+					continue;
 				}
 				if (Std.isOfType(ips, Array)) {
 					var _ips:Array<IP> = cast ips;
@@ -815,17 +826,19 @@ class Component extends EventEmitter {
 			var keys = Reflect.fields(res.__bracketContext);
 			keys.reverse();
 			for (inport in keys) {
-				var context = Reflect.field(res.__bracketContext, inport);
+				if(!Std.isOfType(res.__bracketContext[inport], Array)) continue;
+				var context:Array<ProcessContext> = cast res.__bracketContext[inport];
+				
 				if (context.length == 0) {
-					return;
+					continue;
 				}
 				for (outport in Reflect.fields(res)) {
 					var datas:Array<IP> = null;
 					var forwardedOpens = null;
-					var unforwarded:Array<ProcessContext> = null;
-					var ips = Reflect.field(res, outport);
+					var unforwarded:Array<ProcessContext> = [];
+					var ips:Dynamic = Reflect.field(res, outport);
 					if (outport.indexOf('__') == 0) {
-						return;
+						continue;
 					}
 					if (this.outPorts.ports[outport].isAddressable()) {
 						for (idx in Reflect.fields(ips)) {
@@ -833,12 +846,12 @@ class Component extends EventEmitter {
 							final idxIps:Array<IP> = Reflect.field(ips, idx);
 							datas = idxIps.filter((ip) -> ip.type == DATA);
 							if (datas.length == 0) {
-								return;
+								continue;
 							}
 							final portIdentifier = '${outport}[${idx}]';
 							unforwarded = this.getForwardableContexts(inport, portIdentifier, context);
 							if (unforwarded.length == 0) {
-								return;
+								continue;
 							}
 							forwardedOpens = [];
 
@@ -855,17 +868,17 @@ class Component extends EventEmitter {
 								this.addToResult(res, outport, ip, true);
 							}
 						}
-						return;
+						continue;
 					}
 					if (Std.isOfType(ips, Array)) {
 						// Don't register ports we're only sending brackets to
 						datas = ips.filter((ip) -> ip.type == 'data');
 						if (datas.length == 0) {
-							return;
+							continue;
 						}
 						unforwarded = this.getForwardableContexts(inport, outport, context);
 						if (unforwarded.length == 0) {
-							return;
+							continue;
 						}
 						forwardedOpens = [];
 						for (ctx in unforwarded) {
@@ -886,12 +899,13 @@ class Component extends EventEmitter {
 		if (res.__bracketClosingAfter != null ? res.__bracketClosingAfter.length != 0 : false) {
 			for (context in res.__bracketClosingAfter) {
 				debugBrackets('${this.nodeId} closeBracket-B from \'${context.source}\' to ${context.ports}: \'${context.closeIp.data}\'');
-				if (!context.ports.length) {
-					return;
+				if (context.ports.length == 0) {
+					continue;
 				}
 				var bp:Array<String> = context.ports;
 				for (port in bp) {
-					final ipClone = context.closeIp.clone();
+					final closeIp:IP =  context.closeIp;
+					final ipClone:IP = closeIp.clone();
 					this.addToResult(res, port, ipClone, false);
 					this.getBracketContext('out', port, ipClone.scope).pop();
 				}

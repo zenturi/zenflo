@@ -185,7 +185,7 @@ class Inport extends buddy.BuddySuite {
                 });
                 
                 try {
-                    (() -> s.send('terrific'))();
+                    s.send('terrific');
                 }catch(e:Error){
                     e.should.not.be(null);
                     e.should.beType(Error);

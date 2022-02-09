@@ -121,13 +121,13 @@ class InPort extends BasePort {
 		if (op != null && op.control && (buf.length > 1)) {
 			buf.shift();
 		}
-
+		// trace('ip', ip);
 		this.emit('ip', ip, index);
 	}
 
-	public function getBuffer(scope:String, index:Int, initial = false) {
+	public function getBuffer(scope:Dynamic, index:Int, initial = false) {
 		if (this.isAddressable()) {
-			if ((scope != "null" || scope != null) && this.options.scoped) {
+			if ((scope != null) && this.options.scoped) {
 				if (!(this.indexedScopedBuffer.exists(scope))) {
 					return null;
 				}
@@ -147,21 +147,27 @@ class InPort extends BasePort {
 			}
 			return this.indexedBuffer.get(index);
 		}
-		if ((scope != "null" || scope != null) && this.options.scoped) {
-			if (!(this.scopedBuffer.exists(scope))) {
+		
+		if ((scope != null) && this.options.scoped) {
+			var sc:Dynamic = scope;
+			if(Std.isOfType(scope, Int)){
+				sc = 'int:${scope}';
+			}
+			if (!(this.scopedBuffer.exists(sc))) {
 				return null;
 			}
-			return this.scopedBuffer[scope];
+			return this.scopedBuffer.get(sc);
 		}
 		if (initial) {
 			return this.iipBuffer;
 		}
+		
 		return this.buffer;
 	}
 
 	public function prepareBufferForIP(ip:IP):Array<IP> {
 		if (this.isAddressable()) {
-			if ((ip.scope != null || ip.scope != "null") && this.options.scoped) {
+			if ((ip.scope != null) && this.options.scoped) {
 				if (!(this.indexedScopedBuffer.exists(ip.scope))) {
 					this.indexedScopedBuffer.set(ip.scope, new IntMap());
 				}
@@ -181,11 +187,15 @@ class InPort extends BasePort {
 			}
 			return this.indexedBuffer.get(ip.index);
 		}
-		if (ip != null && (ip.scope != null || ip.scope != "null") && (this.options != null && this.options.scoped)) {
-			if (!(this.scopedBuffer.exists(ip.scope))) {
-				this.scopedBuffer[ip.scope] = [];
+		if (ip != null && (ip.scope != null) && (this.options != null && this.options.scoped)) {
+			var sc:Dynamic = ip.scope;
+			if(Std.isOfType(ip.scope, Int)){
+				sc = 'int:${ip.scope}';
 			}
-			return this.scopedBuffer[ip.scope];
+			if (!this.scopedBuffer.exists(sc)) {
+				this.scopedBuffer.set(sc, []);
+			}
+			return this.scopedBuffer.get(sc);
 		}
 		if (ip.initial) {
 			return this.iipBuffer;
@@ -215,7 +225,7 @@ class InPort extends BasePort {
 		this.buffer = [];
 	}
 
-	public function getFromBuffer(scope:String, index:Int, initial = false) {
+	public function getFromBuffer(scope:Dynamic, index:Int, initial = false) {
 		final buf = this.getBuffer(scope, index, initial);
 		if (!(buf != null ? buf.length != 0 : false)) {
 			return null;
@@ -231,7 +241,7 @@ class InPort extends BasePort {
 	/**
 	 * Fetches a packet from the port
 	 */
-	public function get(scope:String, ?index:Int) {
+	public function get(scope:Dynamic, ?index:Int) {
 		final res = this.getFromBuffer(scope, index);
 
 		if (res != null) {
@@ -244,7 +254,7 @@ class InPort extends BasePort {
 	/**
 	 * Fetches a packet from the port
 	 */
-	public function hasIPinBuffer(scope:String, ?index:Int, validate:HasValidationCallback, initial = false) {
+	public function hasIPinBuffer(scope:Dynamic, ?index:Int, validate:HasValidationCallback, initial = false) {
 		final buf = this.getBuffer(scope, index, initial);
 		if (!(buf != null ? buf.length != 0 : false)) {
 			return false;
@@ -267,7 +277,7 @@ class InPort extends BasePort {
 	 * @param {number|null|HasValidationCallback} index
 	 * @param {HasValidationCallback} [validate]
 	 */
-	public function has(scope:String, index:Dynamic, ?validate:HasValidationCallback) {
+	public function has(scope:Dynamic, index:Dynamic, ?validate:HasValidationCallback) {
 		
 		var valid = validate;
 

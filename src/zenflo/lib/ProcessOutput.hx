@@ -35,7 +35,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 
 	var result:ProcessResult;
 
-	var scope:String = "null";
+	var scope:Dynamic;
 
 	#if cpp
 	function debug(msg:String) {
@@ -75,18 +75,16 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		if ((this.scope != null) && (ip.scope == null)) {
 			ip.scope = this.scope;
 		}
-
+		
 		if (!this.nodeInstance.outPorts.ports.exists(port)) {
 			throw new Error('Node ${this.nodeInstance.nodeId} does not have outport ${port}');
 		}
 
-		// eslint-disable-next-line max-len
 		final portImpl:OutPort = /** @type {import("./OutPort").default} */ cast (this.nodeInstance.outPorts.ports[port]);
-
 		if (portImpl.isAddressable() && (ip.index == null)) {
 			throw new Error('Sending packets to addressable port ${this.nodeInstance.nodeId} ${port} requires specifying index');
 		}
-
+		
 		if (this.nodeInstance.isOrdered()) {
 			this.nodeInstance.addToResult(this.result, port, ip);
 			return;
@@ -94,6 +92,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		if (portImpl != null && portImpl.options != null &&  !portImpl.options.scoped) {
 			ip.scope = null;
 		}
+		
 		portImpl.sendIP(Either.Left(ip));
 	}
 
@@ -108,18 +107,19 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		final componentPorts:Array<String> = [];
 
 		var mapIsInPorts = false;
-
+		
 		for (port in this.ports.ports.keys()) {
 			if ((port != 'error') && (port != 'ports') && (port != '_callbacks')) {
 				componentPorts.push(port);
 			}
+			
 			if (output != null) {
 				if (!mapIsInPorts && Reflect.isObject(output) && Reflect.fields(output).indexOf(port) != -1) {
 					mapIsInPorts = true;
 				}
 			}
 		}
-
+		
 		if ((componentPorts.length == 1) && !mapIsInPorts) {
 			this.sendIP(componentPorts[0], output);
 			return;
@@ -147,16 +147,18 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		this.done();
 	}
 
-	public function pass(data:Dynamic, options:DynamicAccess<Dynamic>) {
+	public function pass(data:Dynamic, ?options:DynamicAccess<Dynamic>) {
 		if (!this.ports.ports.exists("out")) {
 			throw new Error('output.pass() requires port "out" to be present');
 		}
 		final that = this;
-
-		for (key in options.keys()) {
-			final val = options[key];
-			that.ip[key] = val;
+		if(options != null){
+			for (key in options.keys()) {
+				final val = options[key];
+				that.ip[key] = val;
+			}
 		}
+	
 		this.ip.data = data;
 		this.sendIP('out', this.ip);
 		this.done();
@@ -173,21 +175,21 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		}
 
 		final isLast = () -> {
-			
 			// We only care about real output sets with processing data
 			final resultsOnly = this.nodeInstance.outputQ.filter((q) -> {
 				if (!q.__resolved) {
 					return true;
 				}
+				
 				if ((Reflect.fields(q).length == 2) && q.__bracketClosingAfter != null) {
 					return false;
 				}
 				return true;
 			});
+
 			final pos = resultsOnly.indexOf(this.result);
 			final len = resultsOnly.length;
-			final v = this.nodeInstance;
-			final load = v.load;
+			final load = this.nodeInstance.load;
 			if (pos == (len - 1)) {
 				return true;
 			}
@@ -199,29 +201,32 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			}
 			return false;
 		};
-
-		
-
+		// trace(this.nodeInstance.isOrdered(), isLast());
 		if (this.nodeInstance.isOrdered() && isLast()) {
+			
 			// We're doing bracket forwarding. See if there are
 			// dangling closeBrackets in buffer since we're the
 			// last running process function.
-
 			final context = this.nodeInstance.bracketContext;
 			final contextIn:DynamicAccess<Dynamic> = Reflect.field(context, "in");
+		
 			for (port in contextIn.keys()) {
 				final contexts:DynamicAccess<Array<ProcessContext>> = contextIn[port];
-				if (contexts[this.scope] == null) {
-					return;
+				final scope = this.scope == null ? "null" : this.scope;
+				
+				if (contexts[scope] == null) {
+					continue;
 				}
-				final nodeContext:Array<ProcessContext> = contexts[this.scope];
+
+				final nodeContext:Array<ProcessContext> = contexts[scope];
 				
 				if (nodeContext.length == 0) {
-					return;
+					continue;
 				}
 				final _context:ProcessContext = nodeContext[nodeContext.length - 1];
-				// eslint-disable-next-line max-len
+			
 				final inPorts:InPort = /** @type {import("./InPort").default} */ cast (this.nodeInstance.inPorts.ports[_context.source]);
+				
 				final buf:Array<IP> = inPorts.getBuffer(_context.ip.scope, _context.ip.index);
 				while (buf.length > 0 && buf[0].type == CloseBracket) {
 					final ip = inPorts.get(_context.ip.scope, _context.ip.index);
@@ -236,7 +241,6 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		}
 		
 		this.debug('${this.nodeInstance.nodeId} finished processing ${this.nodeInstance.load}');
-
 		this.nodeInstance.deactivate(this.context);
 	}
 }

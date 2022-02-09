@@ -14,7 +14,7 @@ typedef IPDynamic = {
 	?type:IPType,
 	?data:Dynamic,
 	?isIP:Bool,
-	?scope:String, // sync scope id
+	?scope:Any, // sync scope id
     // packet owner process
 	?owner:Component,
     // cloning safety flag
@@ -76,13 +76,13 @@ abstract IP(IPDynamic) from IPDynamic to IPDynamic {
             clonable: false,
             dataType: "all",
             initial: false,
-			scope: "null"
+			// scope: "null"
         };
 
         if(Reflect.isObject(options)){
 			this.___cloneData = Reflect.copy(options);
-            for (_ => value in Reflect.fields(options)) {
-                Reflect.setField(this, value, Reflect.field(options, value));
+            for (key in Reflect.fields(this.___cloneData)) {
+                Reflect.setField(this, key, Reflect.field(this.___cloneData, key));
             }
         }
 	}
@@ -93,7 +93,7 @@ abstract IP(IPDynamic) from IPDynamic to IPDynamic {
 		[FIX: Haxe does seems to only copy by reference]
     **/
     public function clone():IP {
-		final opts =  Reflect.copy(this.___cloneData);
+		final opts =  Reflect.copy(this.___cloneData != null ? this.___cloneData : {});
 		final copy = Reflect.copy(this);
         for (_=> key in Reflect.fields(copy)) {
             final val = Reflect.field(copy, key);
@@ -131,7 +131,6 @@ abstract IP(IPDynamic) from IPDynamic to IPDynamic {
 		}
 		
 		
-		// trace(opts);
         var ip = new IP(this.type, d,  opts);
 		// trace(ip);
 		return ip;
