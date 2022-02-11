@@ -64,9 +64,9 @@ class ComponentOptions {
 		Whether component should send
 		 		packets in same order it received them
 	**/
-	public var ordered:Bool = false;
+	public var ordered:Null<Bool> = null;
 
-	public var autoOrdering:Bool = false;
+	public var autoOrdering:Null<Bool> = null;
 
 	/**
 		Whether component should
@@ -141,8 +141,8 @@ class Component extends EventEmitter {
 
 		// Whether the component should keep send packets
 		// out in the order they were received
-		this.ordered = opts.ordered;
-		this.autoOrdering = opts.autoOrdering;
+		this.ordered = opts.ordered != null ? opts.ordered : false;
+		this.autoOrdering = opts.autoOrdering != null ? opts.autoOrdering : null;
 
 		// Queue for handling ordered output packets
 		/** @type {ProcessResult[]} */
@@ -334,11 +334,9 @@ class Component extends EventEmitter {
 		Ensures bracket forwarding map is correct for the existing ports
 	**/
 	public function prepareForwarding() {
-		
 		for (inPort in this.forwardBrackets.keys()) {
-			
 			final outPorts = this.forwardBrackets[inPort];
-		
+
 			if (!(this.inPorts.ports.exists(inPort))) {
 				this.forwardBrackets.remove(inPort);
 				return;
@@ -388,7 +386,7 @@ class Component extends EventEmitter {
 		} // prevent double deactivation
 		context.deactivated = true;
 		context.activated = false;
-	
+
 		if (this.isOrdered()) {
 			this.processOutputQueue();
 		}
@@ -415,7 +413,7 @@ class Component extends EventEmitter {
 	/**
 		Get the current bracket forwarding context for an IP object
 	**/
-	public function getBracketContext(type:String, port:String, ?scope:String, ?idx:Int):Array<BracketContext> {
+	public function getBracketContext(type:String, port:String, ?scope:Any, ?idx:Int):Array<BracketContext> {
 		final x = normalizePortName(port);
 
 		var name = x.name;
@@ -456,7 +454,7 @@ class Component extends EventEmitter {
 		final x = normalizePortName(port);
 		var name = x.name;
 		var index = x.index;
-		
+
 		if (this.outPorts.ports[name].isAddressable()) {
 			final idx = /** @type {number} */ (index != null && index.length != 0 ? Std.parseInt(index) : ip.index);
 			if (!Reflect.hasField(res, name)) {
@@ -465,7 +463,7 @@ class Component extends EventEmitter {
 			if (!Reflect.hasField(Reflect.field(res, name), '$idx')) {
 				Reflect.setField(Reflect.field(res, name), '$idx', []);
 			}
-			
+
 			ip.index = idx;
 			if (before) {
 				Reflect.field(Reflect.field(res, name), '$idx').unshift(ip);
@@ -495,7 +493,7 @@ class Component extends EventEmitter {
 		var name = x.name;
 
 		final forwardable = [];
-
+		
 		for (idx => ctx in contexts) {
 			// No forwarding to this outport
 			if (!this.isForwardingOutport(inport, name)) {
@@ -508,7 +506,6 @@ class Component extends EventEmitter {
 			// See if we have already forwarded the same bracket from another
 			// inport
 			final outContext:BracketContext = this.getBracketContext('out', name, ctx.ip.scope, Std.parseInt(index))[idx];
-	
 			if (outContext != null) {
 				final ip:IP = outContext["ip"];
 				final ports:Array<Any> = outContext["ports"];
@@ -533,7 +530,7 @@ class Component extends EventEmitter {
 
 	public var ordered:Bool = false;
 
-	public var autoOrdering:Bool = false;
+	public var autoOrdering:Null<Bool>;
 
 	public var activateOnInput:Bool;
 
@@ -551,8 +548,8 @@ class Component extends EventEmitter {
 			if (port.name == null) {
 				port.name = name;
 			}
-			port.on('ip', (ips) -> {
-				final ip = ips[0];
+			port.on('ip', (vals) -> {
+				final ip:IP = vals[0];
 				this.handleIP(ip, port);
 			});
 		}
@@ -596,7 +593,7 @@ class Component extends EventEmitter {
 		if (inportName == null || outportName == null) {
 			return false;
 		}
-	
+
 		if (!this.forwardBrackets.exists(inportName)) {
 			return false;
 		}
@@ -626,7 +623,7 @@ class Component extends EventEmitter {
 			return;
 		}
 
-		if (ip.type == OpenBracket && !this.autoOrdering && !this.ordered) {
+		if (ip.type == OpenBracket && this.autoOrdering == null && !this.ordered) {
 			// Switch component to ordered mode when receiving a stream unless
 			// auto-ordering is disabled
 			debugComponent('${this.nodeId} port \'${port.name}\' entered auto-ordering mode');
@@ -733,23 +730,21 @@ class Component extends EventEmitter {
 		output from the queue in the order it is in.
 	**/
 	function processOutputQueue() {
-		
 		while (this.outputQ.length > 0) {
-			
 			if (!this.outputQ[0].__resolved) {
 				break;
 			}
-			
+
 			final result = this.outputQ.shift();
-		
 			this.addBracketForwards(result);
+			// trace(result);
 			for (port in Reflect.fields(result)) {
 				var portIdentifier = null;
 				final ips:Dynamic = Reflect.field(result, port);
 				if (port.indexOf('__') == 0) {
 					continue;
 				}
-				
+
 				if (this.outPorts.ports[port].isAddressable()) {
 					for (index in Reflect.fields(ips)) {
 						final idxIps:Array<IP> = Reflect.field(ips, index);
@@ -807,11 +802,12 @@ class Component extends EventEmitter {
 	**/
 	function addBracketForwards(result:Null<ProcessResult>) {
 		final res = result;
+
 		if (res.__bracketClosingBefore != null ? res.__bracketClosingBefore.length != 0 : false) {
 			for (context in res.__bracketClosingBefore) {
 				debugBrackets('${this.nodeId} closeBracket-A from \'${context.source}\' to ${context.ports}: \'${context.closeIp.data}\'');
 				if (context.ports.length == 0) {
-					return;
+					continue;
 				}
 				for (port in context.ports) {
 					final ipClone = context.closeIp.clone();
@@ -825,33 +821,34 @@ class Component extends EventEmitter {
 			// the keys so that they get added in correct order
 			var keys = Reflect.fields(res.__bracketContext);
 			keys.reverse();
-			for (inport in keys) {
-				if(!Std.isOfType(res.__bracketContext[inport], Array)) continue;
+			Lambda.iter(keys, (inport) -> {
+				if (!Std.isOfType(res.__bracketContext[inport], Array))
+					return;
 				var context:Array<ProcessContext> = cast res.__bracketContext[inport];
-				
 				if (context.length == 0) {
-					continue;
+					return;
 				}
-				for (outport in Reflect.fields(res)) {
+				Lambda.iter(Reflect.fields(res), (outport) -> {
 					var datas:Array<IP> = null;
 					var forwardedOpens = null;
 					var unforwarded:Array<ProcessContext> = [];
 					var ips:Dynamic = Reflect.field(res, outport);
 					if (outport.indexOf('__') == 0) {
-						continue;
+						return;
 					}
 					if (this.outPorts.ports[outport].isAddressable()) {
-						for (idx in Reflect.fields(ips)) {
+						Lambda.iter(Reflect.fields(ips), (idx)-> {
 							// Don't register indexes we're only sending brackets to
 							final idxIps:Array<IP> = Reflect.field(ips, idx);
+
 							datas = idxIps.filter((ip) -> ip.type == DATA);
 							if (datas.length == 0) {
-								continue;
+								return;
 							}
 							final portIdentifier = '${outport}[${idx}]';
 							unforwarded = this.getForwardableContexts(inport, portIdentifier, context);
 							if (unforwarded.length == 0) {
-								continue;
+								return;
 							}
 							forwardedOpens = [];
 
@@ -867,18 +864,18 @@ class Component extends EventEmitter {
 							for (ip in forwardedOpens) {
 								this.addToResult(res, outport, ip, true);
 							}
-						}
-						continue;
+						});
+						return;
 					}
 					if (Std.isOfType(ips, Array)) {
 						// Don't register ports we're only sending brackets to
 						datas = ips.filter((ip) -> ip.type == 'data');
 						if (datas.length == 0) {
-							continue;
+							return;
 						}
 						unforwarded = this.getForwardableContexts(inport, outport, context);
 						if (unforwarded.length == 0) {
-							continue;
+							return;
 						}
 						forwardedOpens = [];
 						for (ctx in unforwarded) {
@@ -892,8 +889,8 @@ class Component extends EventEmitter {
 							this.addToResult(res, outport, ip, true);
 						}
 					}
-				}
-			}
+				});
+			});
 		}
 
 		if (res.__bracketClosingAfter != null ? res.__bracketClosingAfter.length != 0 : false) {
@@ -904,7 +901,7 @@ class Component extends EventEmitter {
 				}
 				var bp:Array<String> = context.ports;
 				for (port in bp) {
-					final closeIp:IP =  context.closeIp;
+					final closeIp:IP = context.closeIp;
 					final ipClone:IP = closeIp.clone();
 					this.addToResult(res, port, ipClone, false);
 					this.getBracketContext('out', port, ipClone.scope).pop();

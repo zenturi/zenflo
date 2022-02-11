@@ -121,11 +121,16 @@ class InPort extends BasePort {
 		if (op != null && op.control && (buf.length > 1)) {
 			buf.shift();
 		}
-		// trace('ip', ip);
+		// trace('ip', ip, index);
 		this.emit('ip', ip, index);
 	}
 
 	public function getBuffer(scope:Dynamic, index:Int, initial = false) {
+		if(Std.isOfType(scope, String)){
+			if(scope == "null"){
+				scope = null;
+			}
+		}
 		if (this.isAddressable()) {
 			if ((scope != null) && this.options.scoped) {
 				if (!(this.indexedScopedBuffer.exists(scope))) {
@@ -166,6 +171,11 @@ class InPort extends BasePort {
 	}
 
 	public function prepareBufferForIP(ip:IP):Array<IP> {
+		if(Std.isOfType(ip.scope, String)){
+			if(ip.scope == "null"){
+				ip.scope = null;
+			}
+		}
 		if (this.isAddressable()) {
 			if ((ip.scope != null) && this.options.scoped) {
 				if (!(this.indexedScopedBuffer.exists(ip.scope))) {

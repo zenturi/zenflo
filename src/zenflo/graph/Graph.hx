@@ -777,9 +777,8 @@ class Graph extends EventEmitter {
 	
 
 		for (i in 0...this.edges.size) {
+			if(!this.edges.inRange(i)) continue;
 			final edge = this.edges[i];
-			if (edge == null)
-				continue;
 			if (node2 != null && inPort != null) {
 				if ((edge.from.node == node) && (edge.from.port == outPort) && (edge.to.node == node2) && (edge.to.port == inPort)) {
 					this.setEdgeMetadata(edge.from.node, edge.from.port, edge.to.node, edge.to.port, {});

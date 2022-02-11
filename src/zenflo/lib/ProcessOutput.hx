@@ -71,6 +71,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		Sends a single IP object to a port
 	**/
 	public function sendIP(port:String, packet:Dynamic) {
+		// trace("isIP", IP.isIP(packet));
 		final ip = IP.isIP(packet) ? packet : new IP(DATA, packet);
 		if ((this.scope != null) && (ip.scope == null)) {
 			ip.scope = this.scope;
@@ -203,13 +204,11 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		};
 		// trace(this.nodeInstance.isOrdered(), isLast());
 		if (this.nodeInstance.isOrdered() && isLast()) {
-			
 			// We're doing bracket forwarding. See if there are
 			// dangling closeBrackets in buffer since we're the
 			// last running process function.
 			final context = this.nodeInstance.bracketContext;
 			final contextIn:DynamicAccess<Dynamic> = Reflect.field(context, "in");
-		
 			for (port in contextIn.keys()) {
 				final contexts:DynamicAccess<Array<ProcessContext>> = contextIn[port];
 				final scope = this.scope == null ? "null" : this.scope;
@@ -225,8 +224,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 				}
 				final _context:ProcessContext = nodeContext[nodeContext.length - 1];
 			
-				final inPorts:InPort = /** @type {import("./InPort").default} */ cast (this.nodeInstance.inPorts.ports[_context.source]);
-				
+				final inPorts:InPort = /** @type {import("./InPort").default} */ cast (this.nodeInstance.inPorts.ports[_context.source]);				
 				final buf:Array<IP> = inPorts.getBuffer(_context.ip.scope, _context.ip.index);
 				while (buf.length > 0 && buf[0].type == CloseBracket) {
 					final ip = inPorts.get(_context.ip.scope, _context.ip.index);

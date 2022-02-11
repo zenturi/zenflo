@@ -132,7 +132,6 @@ abstract IP(IPDynamic) from IPDynamic to IPDynamic {
 		
 		
         var ip = new IP(this.type, d,  opts);
-		// trace(ip);
 		return ip;
     }
 

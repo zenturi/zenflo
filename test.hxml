@@ -1,7 +1,7 @@
 editor.hxml
 
 
-
+# -D debug
 # --each
 -D buddy-colors
 
