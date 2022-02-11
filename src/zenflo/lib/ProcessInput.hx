@@ -65,9 +65,13 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 		}
 		this.nodeInstance.activate(this.context);
 		if (this.port.isAddressable()) {
+			#if debug
 			this.debug('${this.nodeInstance.nodeId} packet on \'${this.port.name}[${this.ip.index}]\' caused activation ${this.nodeInstance.load}: ${this.ip.type}');
+			#end
 		} else {
+			#if debug
 			this.debug('${this.nodeInstance.nodeId} packet on \'${this.port.name}\' caused activation ${this.nodeInstance.load}: ${this.ip.type}');
+			#end
 		}
 	}
 
@@ -84,7 +88,7 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 		}
 
 		final res:Array<Array<Int>> = [];
-
+		
 		for (port in args) {
 			if (!this.ports.ports.exists(port)) {
 				throw new Error('Node ${this.nodeInstance.nodeId} has no port \'${port}\'');
@@ -111,7 +115,9 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 	**/
 	public function has(...params:Dynamic):Bool {
 		var validate:HasValidationCallback = null;
-		var args = params.toArray().filter((p) -> !Reflect.isFunction(p));
+		var args = params.toArray().filter((p) -> {
+			return Type.typeof(p) !=  Type.ValueType.TFunction;
+		});
 		if (args.length == 0) {
 			args = ['in'];
 		}
@@ -145,7 +151,6 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 				if (portImpl.isAddressable()) {
 					throw new Error('For addressable ports, access must be with array [${port}, idx]');
 				}
-
 				var check = portImpl.has(this.scope, validate);
 				if (check == false) {
 					return false;

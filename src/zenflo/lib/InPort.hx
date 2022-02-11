@@ -62,7 +62,9 @@ class InPort extends BasePort {
 			return this.handleSocketEvent('data', data[0], localId);
 		});
 		socket.on('endgroup', (group) -> this.handleSocketEvent('endgroup', group[0], localId));
-		socket.on('disconnect', (_) -> this.handleSocketEvent('disconnect', socket, localId));
+		socket.on('disconnect', (_) -> {
+			this.handleSocketEvent('disconnect', socket, localId);
+		});
 		
 		socket.on('ip', (ip) -> {
 			this.handleIP(ip[0], localId);

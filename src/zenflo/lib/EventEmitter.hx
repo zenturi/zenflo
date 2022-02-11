@@ -31,20 +31,22 @@ class EventEmitter {
 	public function emit(name:String, data:haxe.Rest<Any>) {
 		final fnName = createName(name);
 		if (this.subjects.exists(fnName)) {
-			final x = [for (v in data) v];
-			final fs = this.subjects.get(fnName);
-			Lambda.iter(fs, (f)-> {
-				f.subject.on_next(x);
-				if (f.once) {
-					f.subject.unsubscribe();
-					fs.remove(f);
-					Lambda.iter(this.listeners.get(fnName), (l) -> {
-						if (l == f.handler) {
-							this.listeners.get(fnName).remove(l);
+			#if sys sys.thread.Thread.runWithEventLoop(()->{ #end
+					final x = [for (v in data) v];
+					final fs = this.subjects.get(fnName);
+					Lambda.iter(fs, (f)-> {
+						f.subject.on_next(x);
+						if (f.once) {
+							f.subject.unsubscribe();
+							fs.remove(f);
+							Lambda.iter(this.listeners.get(fnName), (l) -> {
+								if (l == f.handler) {
+									this.listeners.get(fnName).remove(l);
+								}
+							});
 						}
 					});
-				}
-			});
+			#if sys }); #end
 		}
 	}
 

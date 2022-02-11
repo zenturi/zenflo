@@ -25,17 +25,17 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		#end
 	}
 
-	var ports:OutPorts;
+	public var ports:OutPorts;
 
-	var context:ProcessContext;
+	public var context:ProcessContext;
 
-	var nodeInstance:Component;
+	public var nodeInstance:Component;
 
-	var ip:IP;
+	public var ip:IP;
 
-	var result:ProcessResult;
+	public var result:ProcessResult;
 
-	var scope:Dynamic;
+	public var scope:Dynamic;
 
 	#if cpp
 	function debug(msg:String) {
@@ -76,24 +76,24 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		if ((this.scope != null) && (ip.scope == null)) {
 			ip.scope = this.scope;
 		}
-		
+
 		if (!this.nodeInstance.outPorts.ports.exists(port)) {
 			throw new Error('Node ${this.nodeInstance.nodeId} does not have outport ${port}');
 		}
 
-		final portImpl:OutPort = /** @type {import("./OutPort").default} */ cast (this.nodeInstance.outPorts.ports[port]);
+		final portImpl:OutPort = /** @type {import("./OutPort").default} */ cast(this.nodeInstance.outPorts.ports[port]);
 		if (portImpl.isAddressable() && (ip.index == null)) {
 			throw new Error('Sending packets to addressable port ${this.nodeInstance.nodeId} ${port} requires specifying index');
 		}
-		
+
 		if (this.nodeInstance.isOrdered()) {
 			this.nodeInstance.addToResult(this.result, port, ip);
 			return;
 		}
-		if (portImpl != null && portImpl.options != null &&  !portImpl.options.scoped) {
+		if (portImpl != null && portImpl.options != null && !portImpl.options.scoped) {
 			ip.scope = null;
 		}
-		
+
 		portImpl.sendIP(Either.Left(ip));
 	}
 
@@ -108,19 +108,19 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		final componentPorts:Array<String> = [];
 
 		var mapIsInPorts = false;
-		
+
 		for (port in this.ports.ports.keys()) {
 			if ((port != 'error') && (port != 'ports') && (port != '_callbacks')) {
 				componentPorts.push(port);
 			}
-			
+
 			if (output != null) {
 				if (!mapIsInPorts && Reflect.isObject(output) && Reflect.fields(output).indexOf(port) != -1) {
 					mapIsInPorts = true;
 				}
 			}
 		}
-		
+
 		if ((componentPorts.length == 1) && !mapIsInPorts) {
 			this.sendIP(componentPorts[0], output);
 			return;
@@ -153,13 +153,13 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			throw new Error('output.pass() requires port "out" to be present');
 		}
 		final that = this;
-		if(options != null){
+		if (options != null) {
 			for (key in options.keys()) {
 				final val = options[key];
 				that.ip[key] = val;
 			}
 		}
-	
+
 		this.ip.data = data;
 		this.sendIP('out', this.ip);
 		this.done();
@@ -181,7 +181,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 				if (!q.__resolved) {
 					return true;
 				}
-				
+
 				if ((Reflect.fields(q).length == 2) && q.__bracketClosingAfter != null) {
 					return false;
 				}
@@ -209,36 +209,36 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			// last running process function.
 			final context = this.nodeInstance.bracketContext;
 			final contextIn:DynamicAccess<Dynamic> = Reflect.field(context, "in");
-			for (port in contextIn.keys()) {
+			Lambda.iter(contextIn.keys(), (port) -> {
 				final contexts:DynamicAccess<Array<ProcessContext>> = contextIn[port];
 				final scope = this.scope == null ? "null" : this.scope;
-				
+
 				if (contexts[scope] == null) {
-					continue;
+					return;
 				}
 
 				final nodeContext:Array<ProcessContext> = contexts[scope];
-				
+
 				if (nodeContext.length == 0) {
-					continue;
+					return;
 				}
 				final _context:ProcessContext = nodeContext[nodeContext.length - 1];
-			
-				final inPorts:InPort = /** @type {import("./InPort").default} */ cast (this.nodeInstance.inPorts.ports[_context.source]);				
+				final inPorts:InPort = /** @type {import("./InPort").default} */ cast(this.nodeInstance.inPorts.ports[_context["source"]]);
 				final buf:Array<IP> = inPorts.getBuffer(_context.ip.scope, _context.ip.index);
 				while (buf.length > 0 && buf[0].type == CloseBracket) {
 					final ip = inPorts.get(_context.ip.scope, _context.ip.index);
 					final ctx = nodeContext.pop();
 					ctx.closeIp = ip;
-					if (this.result.__bracketClosingAfter.length == 0) {
+					if (this.result.__bracketClosingAfter == null) {
 						this.result.__bracketClosingAfter = [];
 					}
 					this.result.__bracketClosingAfter.push(ctx);
 				}
-			}
+			});
 		}
-		
+		#if debug
 		this.debug('${this.nodeInstance.nodeId} finished processing ${this.nodeInstance.load}');
+		#end
 		this.nodeInstance.deactivate(this.context);
 	}
 }

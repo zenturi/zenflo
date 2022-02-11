@@ -38,7 +38,7 @@ abstract BracketContext(Dynamic) from Dynamic to Dynamic {
 	}
 }
 
-typedef ProcessingFunction = (input:ProcessInput, output:ProcessOutput, context:ProcessContext) -> Promise<Dynamic>;
+typedef ProcessingFunction = (input:ProcessInput, output:ProcessOutput, context:ProcessContext) -> Any /*Promise<Dynamic>*/;
 
 @:structInit
 class ComponentOptions {
@@ -160,7 +160,8 @@ class Component extends EventEmitter {
 		if (opts.forwardBrackets == null) {
 			opts.forwardBrackets = new DynamicAccess<Array<String>>();
 			opts.forwardBrackets["in"] = ['out', 'error'];
-		}
+		} 
+
 		this.forwardBrackets = opts.forwardBrackets;
 
 		// The component's process function can either be
@@ -336,13 +337,12 @@ class Component extends EventEmitter {
 	public function prepareForwarding() {
 		for (inPort in this.forwardBrackets.keys()) {
 			final outPorts = this.forwardBrackets[inPort];
-
+	
 			if (!(this.inPorts.ports.exists(inPort))) {
 				this.forwardBrackets.remove(inPort);
-				return;
+				continue;
 			}
 
-			/** @type {Array<string>} */
 			final tmp:Array<String> = [];
 
 			for (outPort in outPorts) {
@@ -357,6 +357,7 @@ class Component extends EventEmitter {
 				this.forwardBrackets[inPort] = tmp;
 			}
 		}
+
 	}
 
 	/**
@@ -500,7 +501,8 @@ class Component extends EventEmitter {
 				continue;
 			}
 			// We have already forwarded this context to this outport
-			if (ctx.ports.indexOf(outport) != -1) {
+			final _ports:Array<Dynamic> =  ctx["ports"];
+			if (_ports.indexOf(outport) != -1) {
 				continue;
 			}
 			// See if we have already forwarded the same bracket from another
@@ -510,7 +512,7 @@ class Component extends EventEmitter {
 				final ip:IP = outContext["ip"];
 				final ports:Array<Any> = outContext["ports"];
 				if ((ip.data == ctx.ip.data) && (ports.indexOf(outport) != -1)) {
-					return [];
+					continue;
 				}
 			}
 			forwardable.push(ctx);
@@ -543,7 +545,7 @@ class Component extends EventEmitter {
 
 		this.prepareForwarding();
 		this.handle = handle;
-		for (name in this.inPorts.ports.keys()) {
+		Lambda.iter(this.inPorts.ports.keys(), (name)->{
 			final port:InPort = cast /** @type {InPort} */ (this.inPorts.ports[name]);
 			if (port.name == null) {
 				port.name = name;
@@ -552,7 +554,8 @@ class Component extends EventEmitter {
 				final ip:IP = vals[0];
 				this.handleIP(ip, port);
 			});
-		}
+		});
+	
 		return this;
 	}
 
@@ -618,6 +621,7 @@ class Component extends EventEmitter {
 	**/
 	public function handleIP(ip:IP, port:Null<InPort>) {
 		final op:Dynamic = port.options;
+	
 		if (op != null && !op.triggering) {
 			// If port is non-triggering, we can skip the process function call
 			return;
@@ -694,10 +698,11 @@ class Component extends EventEmitter {
 			if (this.handle == null) {
 				throw new Error('Processing function not defined');
 			}
-			final res = this.handle(input, output, context);
-			if (res != null) {
+			final res:Dynamic = this.handle(input, output, context);
+			if (res != null && res.handle != null) {
 				// Processing function is a Promise
-				res.handle((c) -> {
+				final _res:Promise<Any> = cast res;
+				_res.handle((c) -> {
 					switch c {
 						case Success(data): {
 								output.sendDone(data);
@@ -736,23 +741,23 @@ class Component extends EventEmitter {
 			}
 
 			final result = this.outputQ.shift();
-			this.addBracketForwards(result);
 			// trace(result);
-			for (port in Reflect.fields(result)) {
+			this.addBracketForwards(result);
+			Lambda.iter( Reflect.fields(result), (port)->{
 				var portIdentifier = null;
 				final ips:Dynamic = Reflect.field(result, port);
 				if (port.indexOf('__') == 0) {
-					continue;
+					return;
 				}
 
 				if (this.outPorts.ports[port].isAddressable()) {
-					for (index in Reflect.fields(ips)) {
+					Lambda.iter( Reflect.fields(ips), (index)->{
 						final idxIps:Array<IP> = Reflect.field(ips, index);
 						final idx = Std.parseInt(index);
 						if (!this.outPorts.ports[port].isAttached(idx)) {
-							continue;
+							return;
 						}
-						for (packet in idxIps) {
+						Lambda.iter(idxIps, (packet)->{
 							final ip = packet;
 							portIdentifier = '${port}[${ip.index}]';
 							if (ip.type == OpenBracket) {
@@ -767,16 +772,17 @@ class Component extends EventEmitter {
 							}
 							final out:OutPort = cast this.outPorts.ports[port];
 							out.sendIP(Either.Left(ip));
-						};
-					}
-					continue;
+						});
+					});
+					return;
 				}
 				if (!this.outPorts.ports[port].isAttached()) {
-					continue;
+					return;
 				}
+
 				if (Std.isOfType(ips, Array)) {
 					var _ips:Array<IP> = cast ips;
-					for (packet in _ips) {
+					Lambda.iter(_ips, (packet)->{
 						final ip = packet;
 						portIdentifier = port;
 						if (ip.type == OpenBracket) {
@@ -791,9 +797,10 @@ class Component extends EventEmitter {
 						}
 						final out:OutPort = cast this.outPorts.ports[port];
 						out.sendIP(Either.Left(ip));
-					}
+					});
 				}
-			}
+			});
+		
 		}
 	}
 
@@ -803,13 +810,14 @@ class Component extends EventEmitter {
 	function addBracketForwards(result:Null<ProcessResult>) {
 		final res = result;
 
-		if (res.__bracketClosingBefore != null ? res.__bracketClosingBefore.length != 0 : false) {
+		if (res.__bracketClosingBefore != null &&  res.__bracketClosingBefore.length != 0) {
 			for (context in res.__bracketClosingBefore) {
-				debugBrackets('${this.nodeId} closeBracket-A from \'${context.source}\' to ${context.ports}: \'${context.closeIp.data}\'');
-				if (context.ports.length == 0) {
+				debugBrackets('${this.nodeId} closeBracket-A from \'${context["source"]}\' to ${context["ports"]}: \'${context.closeIp.data}\'');
+				if (context["ports"].length == 0) {
 					continue;
 				}
-				for (port in context.ports) {
+				final _ports:Array<Dynamic> = context["ports"];
+				for (port in _ports) {
 					final ipClone = context.closeIp.clone();
 					this.addToResult(res, port, ipClone, true);
 					this.getBracketContext('out', port, ipClone.scope).pop();
@@ -857,7 +865,7 @@ class Component extends EventEmitter {
 								final ipClone = ctx.ip.clone();
 								ipClone.index = Std.parseInt(idx);
 								forwardedOpens.push(ipClone);
-								ctx.ports.push(portIdentifier);
+								ctx["ports"].push(portIdentifier);
 								this.getBracketContext('out', outport, ctx.ip.scope, ipClone.index).push(ctx);
 							}
 							forwardedOpens.reverse();
@@ -881,7 +889,7 @@ class Component extends EventEmitter {
 						for (ctx in unforwarded) {
 							debugBrackets('${this.nodeId} openBracket from \'${inport}\' to \'${outport}\': \'${ctx.ip.data}\'');
 							forwardedOpens.push(ctx.ip.clone());
-							ctx.ports.push(outport);
+							ctx["ports"].push(outport);
 							this.getBracketContext('out', outport, ctx.ip.scope).push(ctx);
 						}
 						forwardedOpens.reverse();
@@ -895,11 +903,12 @@ class Component extends EventEmitter {
 
 		if (res.__bracketClosingAfter != null ? res.__bracketClosingAfter.length != 0 : false) {
 			for (context in res.__bracketClosingAfter) {
-				debugBrackets('${this.nodeId} closeBracket-B from \'${context.source}\' to ${context.ports}: \'${context.closeIp.data}\'');
-				if (context.ports.length == 0) {
+				debugBrackets('${this.nodeId} closeBracket-B from \'${context.source}\' to ${context["ports"]}: \'${context.closeIp.data}\'');
+				final _ports:Array<Dynamic> = context["ports"];
+				if (_ports.length == 0) {
 					continue;
 				}
-				var bp:Array<String> = context.ports;
+				var bp:Array<String> = context["ports"];
 				for (port in bp) {
 					final closeIp:IP = context.closeIp;
 					final ipClone:IP = closeIp.clone();
@@ -916,7 +925,7 @@ class Component extends EventEmitter {
 }
 
 class DebugComponent #if !cpp extends sneaker.tag.Tagged #end {
-	#if cpp
+	#if (cpp && debug)
 	private var tag:String;
 	#end
 
@@ -927,7 +936,7 @@ class DebugComponent #if !cpp extends sneaker.tag.Tagged #end {
 		#if !cpp
 		this.tag = new sneaker.tag.Tag(tag);
 		#end
-		#if cpp
+		#if (cpp && debug)
 		this.tag = tag;
 		#end
 	}
@@ -936,7 +945,7 @@ class DebugComponent #if !cpp extends sneaker.tag.Tagged #end {
 		#if !cpp
 		this.debug(message);
 		#end
-		#if cpp
+		#if (cpp && debug)
 		Sys.println('[$tag] => $message');
 		#end
 	}
@@ -945,7 +954,7 @@ class DebugComponent #if !cpp extends sneaker.tag.Tagged #end {
 		#if !cpp
 		this.error(message);
 		#end
-		#if cpp
+		#if (cpp && debug)
 		Sys.println('[$tag] => $message');
 		#end
 	}

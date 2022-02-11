@@ -136,7 +136,7 @@ class OutPort extends BasePort {
 		return this.sendIP(Either.Right(DATA), data, options, index);
 	}
 
-	public function sendIP(type:Either<IP, IPType>, ?data:Null<Any>, ?options:Null<IPDynamic>, ?index:Null<Int>) {
+	public function sendIP(type:Either<IP, IPType>, ?data:Null<Any>, ?options:Null<IPDynamic>, ?index:Null<Int>, autoConnect = true) {
 		/** @type {IP} */
 		var ip:IP = null;
 
@@ -172,9 +172,9 @@ class OutPort extends BasePort {
 			this.cache['${idx}'] = ip;
 		}
 		var pristine = true;
-		for (socket in sockets) {
+		Lambda.iter(sockets, (socket)->{
 			if (socket == null) {
-				return this;
+				return;
 			}
 			if (pristine) {
 				socket.post(ip, autoConnect);
@@ -185,12 +185,11 @@ class OutPort extends BasePort {
 				}
 				socket.post(ip, autoConnect);
 			}
-		}
-
+		});
 		return this;
 	}
 
-	var autoConnect(default, null):Bool = false;
+	// var autoConnect(default, null):Bool = false;
 
 	public function closeBracket(?data:Any, ?options:Any, index = null) {
 		return this.sendIP(Either.Right(CloseBracket), data, options, index);

@@ -28,11 +28,11 @@ typedef TProcessContext = {
 	public var ?scope:Dynamic;
 
 	public var ?deactivated:Bool;
-	public var ?source:String;
+	// public var ?source:String;
 
 	public var ?closeIp:IP;
 
-	public var ?ports:Array<String>;
+	// public var ?ports:Array<String>;
 }
 
 
@@ -49,6 +49,15 @@ abstract ProcessContext(TProcessContext) from TProcessContext  to Dynamic to TPr
 		this.scope = this.ip.scope;
 	}
 
+	@:arrayAccess
+	public function setField(name:String, val:Dynamic) {
+		Reflect.setField(this, name, val);
+	}
+
+	@:arrayAccess
+	public function getField(name:String):Dynamic {
+		return Reflect.field(this, name);
+	}
 
 	public function activate() {
 		// Push a new result value if previous has been sent already

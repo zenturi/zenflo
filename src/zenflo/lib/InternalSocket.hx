@@ -228,7 +228,7 @@ class InternalSocket extends EventEmitter {
 	
 		this.handleSocketEvent('ip', ip, false);
 		if (autoDisconnect && this.isConnected() && (this.brackets.length == 0)) {
-			(this.disconnect)();
+			this.disconnect();
 		}
 
 		return null;
