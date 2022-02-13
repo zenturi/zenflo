@@ -1,7 +1,7 @@
 package zenflo.graph;
 
 import haxe.Timer;
-import polygonal.ds.ArrayList;
+import ds.ArrayList;
 import haxe.io.Path;
 #if sys
 import sys.io.File;
@@ -406,8 +406,7 @@ class Graph extends EventEmitter {
 			if (group.name != oldName) {
 				return;
 			}
-			final g = group;
-			g.name = newName;
+			group.name = newName;
 			this.emit('renameGroup', oldName, newName);
 		});
 		this.checkTransactionEnd();
@@ -416,47 +415,46 @@ class Graph extends EventEmitter {
 
 	public function removeGroup(groupName:String):Graph {
 		this.checkTransactionStart();
-
-		this.groups = Lambda.filter(this.groups, (group) -> {
+		for(group in this.groups){
 			if (group == null) {
-				return false;
+				this.groups.remove(group);
+				continue;
 			}
 			if (group.name != groupName) {
-				return true;
+				break;
 			}
-			this.setGroupMetadata(group.name, new GraphGroupMetadata());
+			this.setGroupMetadata(group.name, {});
 			this.emit('removeGroup', group);
-			return false;
-		});
+			this.groups.remove(group);
+		}
 		this.checkTransactionEnd();
 		return this;
 	}
 
 	public function setGroupMetadata(groupName:String, metadata:GraphGroupMetadata):Graph {
 		this.checkTransactionStart();
-		this.groups.iter((group) -> {
+		for (group in this.groups) {
 			if (group == null) {
-				return;
+				continue;
 			}
 			if (group.name != groupName) {
-				return;
+				continue;
 			}
 			final before = group.metadata.copy();
 			for (item in metadata.keys()) {
-				final g = group;
-				if (g.metadata == null) {
-					return;
-				}
 				final val = metadata[item];
+				if (group.metadata == null) {
+					continue;
+				}
 
 				if (val != null) {
-					g.metadata[item] = val;
+					group.metadata[item] = val;
 				} else {
-					g.metadata.remove(item);
+					group.metadata.remove(item);
 				}
 			}
 			this.emit('changeGroup', group, before, metadata);
-		});
+		}
 
 		this.checkTransactionEnd();
 		return this;
@@ -508,7 +506,7 @@ class Graph extends EventEmitter {
 
 		this.checkTransactionStart();
 
-		this.edges.iter((edge)->{
+		this.edges.iter((edge) -> {
 			if (edge != null) {
 				if ((edge.from.node == node.id) || (edge.to.node == node.id)) {
 					this.removeEdge(edge.from.node, edge.from.port, edge.to.node, edge.to.port);
@@ -516,26 +514,23 @@ class Graph extends EventEmitter {
 			}
 		});
 
-		for(iip in this.initializers){
+		for (iip in this.initializers) {
 			if (iip != null && iip.to != null && iip.to.node == node.id) {
 				this.removeInitial(iip.to.node, iip.to.port);
 			}
 		}
-		
-	
-		Lambda.foreach(this.inports.keys(), (pub) -> {
+
+		Lambda.iter(this.inports.keys(), (pub) -> {
 			final priv = this.inports[pub];
 			if (priv.process == id) {
 				this.removeInport(pub);
 			}
-			return true;
 		});
-		Lambda.foreach(this.outports.keys(), (pub) -> {
+		Lambda.iter(this.outports.keys(), (pub) -> {
 			final priv = this.outports[pub];
 			if (priv.process == id) {
 				this.removeOutport(pub);
 			}
-			return true;
 		});
 		this.groups.iter((group) -> {
 			if (group == null) {
@@ -551,7 +546,6 @@ class Graph extends EventEmitter {
 				this.removeGroup(group.name);
 			}
 		});
-	
 
 		this.setNodeMetadata(id, new GraphNodeMetadata());
 
@@ -561,8 +555,6 @@ class Graph extends EventEmitter {
 			return false;
 		});
 
-		
-		
 		this.emit('removeNode', node);
 
 		this.checkTransactionEnd();
@@ -774,10 +766,9 @@ class Graph extends EventEmitter {
 		final outPort = this.getPortName(port);
 		final inPort = this.getPortName(port2);
 
-	
-
 		for (i in 0...this.edges.size) {
-			if(!this.edges.inRange(i)) continue;
+			if (!this.edges.inRange(i))
+				continue;
 			final edge = this.edges[i];
 			if (node2 != null && inPort != null) {
 				if ((edge.from.node == node) && (edge.from.port == outPort) && (edge.to.node == node2) && (edge.to.port == inPort)) {
@@ -951,7 +942,7 @@ class Graph extends EventEmitter {
 	public function addGraphInitialIndex(data:Any, node:String, index:Int, ?metadata:GraphIIPMetadata):Graph {
 		if (metadata == null)
 			metadata = {};
-		
+
 		final inport = this.inports[node];
 		if (inport == null) {
 			return this;
@@ -980,15 +971,14 @@ class Graph extends EventEmitter {
 		final portName = this.getPortName(port);
 		this.checkTransactionStart();
 
-
-		this.initializers = this.initializers.filter((iip)->{
+		this.initializers = this.initializers.filter((iip) -> {
 			if (iip != null && iip.to != null && iip.to.node == node && iip.to.port == portName) {
 				this.emit('removeInitial', iip);
 				return false;
 			}
 			return true;
 		});
-		
+
 		this.checkTransactionEnd();
 		return this;
 	}
@@ -1100,8 +1090,8 @@ class Graph extends EventEmitter {
 				dot += '    ${wrapQuotes(node.id)} [label=${wrapQuotes(node.id)} shape=box]\n';
 			}
 		})();
-		(()->{
-			for(id in 0...this.initializers.length){
+		(() -> {
+			for (id in 0...this.initializers.length) {
 				final initializer = this.initializers[id];
 				var data = null;
 				if (Reflect.isFunction(initializer.from.data)) {
@@ -1263,13 +1253,18 @@ class Graph extends EventEmitter {
 			final json = Json.stringify(this.toJSON(), null, '\t');
 			final path = Path.withoutExtension(file);
 			try {
+				#if (sys || hxnodejs)
 				#if sys
 				File.saveContent('${path}.json', json);
 				#else
-				throw new Error("File saving not yet supported on this platform");
+				js.node.Fs.writeFileSync('${path}.json', json);
 				#end
 				resolve('${file}.json');
+				#else
+				reject(new Error("File saving not yet supported on this platform"));
+				#end
 			} catch (e) {
+				trace(e);
 				reject(new Error(e.toString()));
 			}
 			return null;
@@ -1397,9 +1392,13 @@ class Graph extends EventEmitter {
 	}
 
 	public static function loadFile(graphFilePath:String):Promise<Graph> {
+		#if (sys || hxnodejs)
 		#if sys
 		var input = File.read(graphFilePath, false);
 		var buf = input.readAll();
+		#else
+		var buf = js.node.Fs.readFileSync(graphFilePath);
+		#end
 		var ext = Path.extension(graphFilePath);
 		if (ext == "json") {
 			return loadJSON(buf.toString());

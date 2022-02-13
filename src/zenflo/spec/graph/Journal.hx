@@ -152,18 +152,18 @@ DEL Foo(Bar)
 						g.setGroupMetadata('all', {label: 'ALL NODES!'});
 						j.store.lastRevision.should.be(r + 1);
 					});
+				
 					it('undoing group metadata change', {
 						j.undo();
 						g.groups[0].metadata["label"].should.be('all nodes');
 					});
-					// beforeEach((done) -> {
-					// 	haxe.Timer.delay(() -> {
-					// 		done();
-					// 	}, 0);
-					// });
-					it('redoing group metadata change', () -> {
+					
+					it('redoing group metadata change', (done) -> {
 						j.redo();
-						g.groups[0].metadata['label'].should.be('ALL NODES!');
+						haxe.Timer.delay(() -> {
+							g.groups[0].metadata['label'].should.be('ALL NODES!');
+							done();
+						}, 10);
 					});
 
 					it('setting node metadata', {

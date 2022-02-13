@@ -1,6 +1,6 @@
 package zenflo.spec.graph;
 
-import polygonal.ds.ArrayList;
+// import polygonal.ds.ArrayList;
 import haxe.Timer;
 import equals.Equal;
 import buddy.BuddySuite;
@@ -723,8 +723,10 @@ class Graph extends buddy.BuddySuite {
 									connections += 1;
 								}
 							}
-							connections.should.be(0);
-							done();
+							haxe.Timer.delay(()->{
+								connections.should.be(0);
+								done();
+							}, 10);
 						});
 						it('shouldn\'t have IIPs left behind', (done) -> {
 							final connections = Lambda.filter(g.initializers, (iip) -> {
@@ -971,7 +973,7 @@ class Graph extends buddy.BuddySuite {
 					});
 				});
 			});
-			#if sys
+			#if (sys || hxnodejs)
 			describe('saving and loading files', {
 				describe('with .json suffix', {
 					var originalGraph = null;

@@ -7,7 +7,7 @@ function parseId(source:String, filePath:String){
     if(re.match(source)){
        return re.matched(1);
     }
-    return Path.withoutDirectory(Path.withExtension(filePath, Path.extension(filePath)));
+    return Path.withoutDirectory(Path.withoutExtension(filePath));
 }
 
 

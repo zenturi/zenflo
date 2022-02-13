@@ -17,6 +17,8 @@ ZenFlo is a way to coordinate and reorganize data flow in any application. If yo
  * [hxcpp](https://lib.haxe.org/p/hxcpp)
  * [hxcs](https://lib.haxe.org/p/hxcs)
 
+ * [ds](https://github.com/zenturi/ds)
+
 This project uses [lix.pm](https://github.com/lix-pm/lix.client) as Haxe package manager.
 Run `npm install` to install the dependencies.
 

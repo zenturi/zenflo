@@ -2,7 +2,6 @@ editor.hxml
 
 
 -m zenflo.spec.Test
-
 -D buddy-colors
 --js bin/test.js
 

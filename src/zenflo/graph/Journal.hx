@@ -70,17 +70,16 @@ function entryToPrettyString(entry:TransactionEntry):String {
 
 // To set, not just update (append) metadata
 function calculateMeta(oldMeta:JournalMetadata, newMeta:JournalMetadata):JournalMetadata {
-	final setMeta:JournalMetadata = new DynamicAccess();
-	Lambda.foreach(oldMeta.keys(), (k) -> {
+	final setMeta:JournalMetadata = {};
+	for(k in oldMeta.keys()){
 		setMeta[k] = null;
-		return true;
-	});
-
-	Lambda.foreach(newMeta.keys(), (k) -> {
+	}
+	
+	for(k in newMeta.keys()){
 		final v = newMeta[k];
 		setMeta[k] = v;
-		return true;
-	});
+	}
+
 	return setMeta;
 }
 
@@ -133,31 +132,28 @@ class Journal extends EventEmitter {
 				this.appendCommand('addEdge', edge);
 			});
 
-			this.graph.initializers.map((iip) -> {
+			Lambda.iter(this.graph.initializers, (iip) -> {
 				this.appendCommand('addInitial', iip);
-				return iip;
 			});
 
 			if (this.graph.properties.keys().length > 0) {
 				this.appendCommand('changeProperties', this.graph.properties);
 			}
 
-			Lambda.foreach(this.graph.inports.keys(), (name) -> {
+			Lambda.iter(this.graph.inports.keys(), (name) -> {
 				final port = this.graph.inports[name];
 				this.appendCommand('addInport', {
 					name: name,
 					port: port
 				});
-				return true;
 			});
 
-			Lambda.foreach(this.graph.outports.keys(), (name) -> {
+			Lambda.iter(this.graph.outports.keys(), (name) -> {
 				final port = this.graph.outports[name];
 				this.appendCommand('addOutport', {
 					name: name,
 					port: port
 				});
-				return true;
 			});
 
 			this.graph.groups.iter((group) -> {
@@ -189,7 +185,7 @@ class Journal extends EventEmitter {
 			final oldMeta = vals[1];
 			this.appendCommand('changeNode', {
 				id: node.id,
-				"new": node.metadata,
+				"_new": node.metadata,
 				old: oldMeta,
 			});
 		});
@@ -205,7 +201,7 @@ class Journal extends EventEmitter {
 			this.appendCommand('changeEdge', {
 				from: edge.from,
 				to: edge.to,
-				"new": edge.metadata,
+				"_new": edge.metadata,
 				old: oldMeta,
 			});
 		});
@@ -218,7 +214,7 @@ class Journal extends EventEmitter {
 
 		this.graph.on('changeProperties', (vals) -> {
 			final newProps = vals[0], oldProps = vals[1];
-			this.appendCommand('changeProperties', {"new": newProps, old: oldProps});
+			this.appendCommand('changeProperties', {"_new": newProps, old: oldProps});
 		});
 
 		this.graph.on('addGroup', (group) -> this.appendCommand('addGroup', group[0]));
@@ -229,8 +225,9 @@ class Journal extends EventEmitter {
 			});
 		});
 		this.graph.on('removeGroup', (group) -> this.appendCommand('removeGroup', group[0]));
-		this.graph.on('changeGroup', (vals:Array<Dynamic>) -> {
-			this.appendCommand('changeGroup', {name: vals[0].name, "new": vals[0].metadata, old: vals[1]});
+		this.graph.on('changeGroup', (vals) -> {
+			final n:Dynamic = vals[0];
+			this.appendCommand('changeGroup', {name: n.name, "_new": n.metadata, old: vals[1]});
 		});
 
 		this.graph.on('addExport', (exported) -> this.appendCommand('addExport', exported[0]));
@@ -239,11 +236,11 @@ class Journal extends EventEmitter {
 		this.graph.on('addInport', (vals:Array<Dynamic>) -> this.appendCommand('addInport', {name: vals[0], port: vals[1]}));
 		this.graph.on('removeInport', (vals:Array<Dynamic>) -> this.appendCommand('removeInport', {name: vals[0], port: vals[1]}));
 		this.graph.on('renameInport', (vals:Array<Dynamic>) -> this.appendCommand('renameInport', {oldId: vals[0], newId: vals[1]}));
-		this.graph.on('changeInport', (vals:Array<Dynamic>) -> this.appendCommand('changeInport', {name: vals[0], "new": vals[1].metadata, old: vals[2]}));
+		this.graph.on('changeInport', (vals:Array<Dynamic>) -> this.appendCommand('changeInport', {name: vals[0], "_new": vals[1].metadata, old: vals[2]}));
 		this.graph.on('addOutport', (vals:Array<Dynamic>) -> this.appendCommand('addOutport', {name: vals[0], port: vals[1]}));
 		this.graph.on('removeOutport', (vals:Array<Dynamic>) -> this.appendCommand('removeOutport', {name: vals[0], port: vals[1]}));
 		this.graph.on('renameOutport', (vals:Array<Dynamic>) -> this.appendCommand('renameOutport', {oldId: vals[0], newId: vals[1]}));
-		this.graph.on('changeOutport', (vals:Array<Dynamic>) -> this.appendCommand('changeOutport', {name: vals[0], "new": vals[1].metadata, old: vals[2]}));
+		this.graph.on('changeOutport', (vals:Array<Dynamic>) -> this.appendCommand('changeOutport', {name: vals[0], "_new": vals[1].metadata, old: vals[2]}));
 
 		this.graph.on('startTransaction', (vals) -> {
 			// id, meta
@@ -269,7 +266,7 @@ class Journal extends EventEmitter {
 		}, this.currentRevision);
 	}
 
-	public function appendCommand(cmd:String, args:Dynamic, ?rev:Null<Int>) {
+	public function appendCommand(cmd:String, args:Dynamic, rev:Int = 0) {
 		if (!this.subscribed) {
 			return;
 		}
@@ -305,8 +302,6 @@ class Journal extends EventEmitter {
 
 	public function executeEntry(entry:TransactionEntry) {
 		final a = entry.args;
-		var _new = Reflect.field(a, "new");
-		// trace("execute", entry.cmd);
 		switch (entry.cmd) {
 			case 'addNode':
 				{
@@ -322,7 +317,7 @@ class Journal extends EventEmitter {
 				}
 			case 'changeNode':
 				{
-					this.graph.setNodeMetadata(a.id, calculateMeta(a.old, _new));
+					this.graph.setNodeMetadata(a.id, calculateMeta(a.old, a._new));
 				}
 			case 'addEdge':
 				{
@@ -334,7 +329,7 @@ class Journal extends EventEmitter {
 				}
 			case 'changeEdge':
 				{
-					this.graph.setEdgeMetadata(a.from.node, a.from.port, a.to.node, a.to.port, calculateMeta(a.old, _new));
+					this.graph.setEdgeMetadata(a.from.node, a.from.port, a.to.node, a.to.port, calculateMeta(a.old, a._new));
 				}
 			case 'addInitial':
 				{
@@ -354,7 +349,7 @@ class Journal extends EventEmitter {
 				{}
 			case 'changeProperties':
 				{
-					this.graph.setProperties(_new);
+					this.graph.setProperties(a._new);
 				}
 			case 'addGroup':
 				{
@@ -370,9 +365,7 @@ class Journal extends EventEmitter {
 				}
 			case 'changeGroup':
 				{
-					// trace(a.old, _new);
-					// trace(CallStack.callStack());
-					this.graph.setGroupMetadata(a.name, calculateMeta(a.old, _new));
+					this.graph.setGroupMetadata(a.name, calculateMeta(a.old, a._new));
 				}
 			case 'addInport':
 				{
@@ -388,7 +381,7 @@ class Journal extends EventEmitter {
 				}
 			case 'changeInport':
 				{
-					this.graph.setInportMetadata(a.name, calculateMeta(a.old, _new));
+					this.graph.setInportMetadata(a.name, calculateMeta(a.old, a._new));
 				}
 			case 'addOutport':
 				{
@@ -404,7 +397,7 @@ class Journal extends EventEmitter {
 				}
 			case 'changeOutport':
 				{
-					this.graph.setOutportMetadata(a.name, calculateMeta(a.old, _new));
+					this.graph.setOutportMetadata(a.name, calculateMeta(a.old, a._new));
 				}
 			default:
 				throw new Error('Unknown journal entry: ${entry.cmd}');
@@ -413,8 +406,6 @@ class Journal extends EventEmitter {
 
 	public function executeEntryInversed(entry:TransactionEntry) {
 		final a = entry.args;
-		var _new = Reflect.field(a, "new");
-		// trace("reversed", entry.cmd);
 		switch (entry.cmd) {
 			case 'addNode':
 				{
@@ -430,7 +421,7 @@ class Journal extends EventEmitter {
 				}
 			case 'changeNode':
 				{
-					this.graph.setNodeMetadata(a.id, calculateMeta(_new, a.old));
+					this.graph.setNodeMetadata(a.id, calculateMeta(a._new, a.old));
 				}
 			case 'addEdge':
 				{
@@ -442,7 +433,7 @@ class Journal extends EventEmitter {
 				}
 			case 'changeEdge':
 				{
-					this.graph.setEdgeMetadata(a.from.node, a.from.port, a.to.node, a.to.port, calculateMeta(_new, a.old));
+					this.graph.setEdgeMetadata(a.from.node, a.from.port, a.to.node, a.to.port, calculateMeta(a._new, a.old));
 				}
 			case 'addInitial':
 				{
@@ -478,7 +469,7 @@ class Journal extends EventEmitter {
 				}
 			case 'changeGroup':
 				{
-					this.graph.setGroupMetadata(a.name, calculateMeta(_new, a.old));
+					this.graph.setGroupMetadata(a.name, calculateMeta(a._new, a.old));
 				}
 			case 'addInport':
 				{
@@ -494,7 +485,7 @@ class Journal extends EventEmitter {
 				}
 			case 'changeInport':
 				{
-					this.graph.setInportMetadata(a.name, calculateMeta(_new, a.old));
+					this.graph.setInportMetadata(a.name, calculateMeta(a._new, a.old));
 				}
 			case 'addOutport':
 				{
@@ -510,7 +501,7 @@ class Journal extends EventEmitter {
 				}
 			case 'changeOutport':
 				{
-					this.graph.setOutportMetadata(a.name, calculateMeta(_new, a.old));
+					this.graph.setOutportMetadata(a.name, calculateMeta(a._new, a.old));
 				}
 			default:
 				throw new Error('Unknown journal entry: ${entry.cmd}');
@@ -526,14 +517,14 @@ class Journal extends EventEmitter {
 
 		if (revId > this.currentRevision) {
 			// Forward replay journal to revId
+			// #if !js
 			var start =  this.currentRevision + 1;
 			var r = start;
 			var end = revId;
 			var asc = start <= end;
 			
 			while (asc ? r <= end : r >= end) {
-				this.store.fetchTransaction(r).iter((entry) -> {
-					// trace(entry);
+				Lambda.iter(this.store.fetchTransaction(r), (entry) -> {
 					this.executeEntry(entry);
 				});
 
@@ -542,6 +533,17 @@ class Journal extends EventEmitter {
 				else
 					r -= 1;
 			}
+			// #else 
+			// js.Syntax.code('
+			// for (let start = {2} + 1, r = start, end = {3}, asc = start <= end;
+			// 	asc ? r <= end : r >= end;
+			// 	asc ? r += 1 : r -= 1) {
+			// 	{0}.fetchTransaction(r).forEach((entry) => {
+			// 	  {1}(entry);
+			// 	});
+			//   }
+			// ', this.store, this.executeEntry, this.currentRevision, revId);
+			// #end
 		} else {
 			
 			// Move backwards, and apply inverse changes
@@ -550,11 +552,10 @@ class Journal extends EventEmitter {
 			
 			while (r >= end) {
 				// Apply entries in reverse order
-				final e:Array<TransactionEntry> = cast this.store.fetchTransaction(r).toArr();
+				final e:Array<TransactionEntry> = this.store.fetchTransaction(r).slice(0);
 				e.reverse();
-				e.filter((entry) -> {
+				Lambda.iter(e, (entry)->{
 					this.executeEntryInversed(entry);
-					return true;
 				});
 
 				r -= 1;

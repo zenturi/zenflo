@@ -1,7 +1,7 @@
 package zenflo.lib;
 
-import polygonal.ds.tools.GrowthRate;
-import polygonal.ds.ArrayList;
+import ds.tools.GrowthRate;
+import ds.ArrayList;
 import haxe.ds.List;
 // using polygonal.ds.tools.NativeArrayTools;
 

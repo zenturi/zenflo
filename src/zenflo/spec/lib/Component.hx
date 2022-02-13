@@ -3233,7 +3233,8 @@ class Component extends buddy.BuddySuite {
 				var sout2:InternalSocket = null;
 
 				beforeAll((done)->{
-					final opts:Dynamic = {
+					var timer:haxe.Timer = null;
+					final opts:zenflo.lib.ComponentOptions = {
 						inPorts: new InPorts({
 							interval: {
 								dataType: 'number',
@@ -3246,19 +3247,21 @@ class Component extends buddy.BuddySuite {
 							out: { dataType: 'bang' },
 							err: { dataType: 'object' },
 						}),
-						timer: null,
 						ordered: false,
 						autoOrdering: false,
 					};
+
+		
 
 					opts.process = (input:ProcessInput, output:ProcessOutput, context:ProcessContext) -> {
 						if (!input.has('interval')) { return null; }
 						if (input.has('start')) {
 							input.get('start');
-							final interval = Std.parseInt(input.getData('interval'));
-							if (opts.timer != null) { opts.timer.stop(); }
-							opts.timer = new haxe.Timer(interval);
-							opts.timer.run = () -> {
+							final _interval = input.getData('interval');
+							final interval:Int = Std.isOfType(_interval, String) ? Std.parseInt(input.getData('interval')) : _interval;
+							if (timer != null) { timer.stop(); }
+							timer = new haxe.Timer(interval);
+							timer.run = () -> {
 									context.activate();
 									haxe.Timer.delay(() -> {
 											final outport:OutPort = cast output.ports["out"];
@@ -3267,10 +3270,11 @@ class Component extends buddy.BuddySuite {
 										},
 										5); // delay of 3 to test async
 							};
+
 						}
 						if (input.has('stop')) {
 							input.get('stop');
-							if (opts.timer) { opts.timer.stop(); }
+							if (timer != null) { timer.stop(); }
 						}
 						output.done();
 

@@ -476,10 +476,10 @@ class BaseNetwork extends EventEmitter {
 		}
 
 		promise = Promise.resolve(null)
-			.next((_) -> handleAll(this.graph.nodes.toArray(), this.addNode.bind()))
-			.next((_) -> handleAll(this.graph.edges.toArray(), this.addEdge.bind()))
+			.next((_) -> handleAll(this.graph.nodes, this.addNode.bind()))
+			.next((_) -> handleAll(this.graph.edges, this.addEdge.bind()))
 			.next((_) -> handleAll(this.graph.initializers, this.addInitial.bind()))
-			.next((_) -> handleAll(this.graph.nodes.toArray(), this.addDefaults.bind()))
+			.next((_) -> handleAll(this.graph.nodes, this.addDefaults.bind()))
 			.next((_) -> this);
 		return promise;
 	}

@@ -2,6 +2,7 @@ package zenflo.lib.loader;
 
 import zenflo.lib.runtimes.HScriptRuntime;
 import tink.core.Future;
+import tink.core.Promise;
 import tink.core.Noise;
 import tink.core.Noise.Never;
 import zenflo.lib.Component.ErrorableCallback;
@@ -23,13 +24,14 @@ typedef ManifestModule = {
 	?base:String,
 	?icon:String,
 	?components:Array<ManifestComponent>,
+	?graphs:Array<ManifestComponent>,
 	?zenflo:DynamicAccess<Dynamic>
 }
 
 typedef ManifestComponent = {
 	name:String,
 	?description:String,
-    ?runtime:String,
+	?runtime:String,
 	?path:String,
 	?source:String,
 	?tests:String,
@@ -42,8 +44,10 @@ typedef ManifestComponent = {
 typedef ManifestPort = {
 	name:String,
 	?description:String,
-	type:String,
-	addressible:Bool,
+	?type:String,
+	?dataType:String,
+	?addressible:Bool,
+	?control:Bool,
 	?required:Bool
 }
 
@@ -74,8 +78,28 @@ class ManifestLoader {
 		return new ManifestLoader();
 	}
 
-	function register(loader:ComponentLoader, callback:(err:tink.core.Error) -> Void) {
-		if (loader.options != null ? loader.options.cache != null : false) {}
+	function register(loader:ComponentLoader, callback:(err:tink.core.Error, modules:Array<Dynamic>) -> Void) {
+		final manifestOptions = prepareManifestOptions(loader);
+		if (loader.options != null ? loader.options.cache != null : false) {
+			this.listComponents(loader, manifestOptions, (err, modules) -> {
+				if (err != null) {
+					callback(err, []);
+					return;
+				}
+				zenflo.lib.loader.Loaders.registerSubgraph(loader);
+				callback(null, modules);
+			});
+		}
+
+		list(loader, manifestOptions, (err, modules) -> {
+			if (err != null) {
+				callback(err, []);
+				return;
+			}
+			
+			zenflo.lib.loader.Loaders.registerSubgraph(loader);
+			callback(null, modules);
+		});
 	}
 
 	function prepareManifestOptions(loader:ComponentLoader) {
@@ -95,6 +119,8 @@ class ManifestLoader {
 		}
 		options.recursive = l.options.recursive == null ? true : l.options.recursive;
 		options.manifest = l.options.manifest != null ? l.options.manifest : 'fbp.json';
+
+		return options;
 	}
 
 	function load(baseDir:String, options:ManifestOptions):Promise<ManifestDocument> {
@@ -137,98 +163,199 @@ class ManifestLoader {
 			return Promise.reject(new Error('Unsupported runtime types: ${missingRuntimes.join(', ')}'));
 		}
 
-		return Lambda.fold(options.runtimes,
-			(runtime,
-					chain:Promise<Array<ManifestModule>>) -> chain.next((currentList) -> runtimes.get(runtime)
-					.list(baseDir, options)
-					.next((result) -> currentList.concat(result))),
-			Promise.resolve([]))
-			.next((results) -> {
-				// Flatten
-				var modules:Array<ManifestModule> = [];
-				for (r in results)
-					modules.concat([r]);
+		return new Promise((resolve, reject) -> {
+			final currentList = [];
+			for (runtime in options.runtimes) {
+				runtimes[runtime].list(baseDir, options).next((result) -> {
+					return currentList.concat(result);
+				}).handle((cb) -> {
+					switch (cb) {
+						case Success(results): {
+								// Flatten
+								var modules:Array<ManifestModule> = [];
+								for (r in results)
+									modules = modules.concat([r]);
 
-				if (!options.recursive) {
-					return Promise.resolve(modules);
-				}
+								if (!options.recursive) {
+									resolve(modules);
+									return;
+								}
 
-				return Lambda.fold(options.runtimes,
-					(runtime,
-							chain:Promise<Array<String>>) -> chain.next((currentList) -> runtimes.get(runtime)
-							.listDependencies(baseDir, options)
-							.next((result) -> currentList.concat(result))),
-					Promise.resolve([]))
-					.next((deps) -> Lambda.fold(deps,
-						(dep,
-								depChain:Promise<Array<ManifestModule>>) -> depChain.next((currentList) -> manifestlist(dep,
-								options).next((subDeps) -> currentList.concat(subDeps))),
-						Promise.resolve([])))
-					.next((subDeps) -> {
-						var subs = [];
-						for (s in subDeps)
-							subs.concat([s]);
-						modules = modules.concat(subs);
-						return modules;
-					});
-			});
+								final currentList = [];
+								for (runtime in options.runtimes) {
+									runtimes[runtime].listDependencies(baseDir, options).next((result) -> {
+										return currentList.concat(result);
+									}).handle((cb) -> {
+										switch cb {
+											case Success(deps): {
+													if(deps.length == 0){
+														resolve(modules);
+														return;
+													}
+													final currentList = [];
+													for (dep in deps) {
+														manifestlist(dep, options).next((subDeps) -> currentList.concat(subDeps)).handle((cb) -> {
+															switch cb {
+																case Success(subDeps): {
+																		var subs = [];
+																		for (s in subDeps)
+																			subs.concat([s]);
+																		modules = modules.concat(subs);
+																
+																		resolve(modules);
+																	}
+																case Failure(err): {
+																		reject(err);
+																	}
+															}
+														});
+													}
+												}
+											case Failure(err): {
+													reject(err);
+												}
+										}
+									});
+								}
+							}
+						case Failure(err): {
+								reject(err);
+							}
+					}
+				});
+			}
+
+			return null;
+		});
 	}
 
 	function list(loader:ComponentLoader, options:ManifestOptions, callback:(err:tink.core.Error, modules:Array<ManifestModule>) -> Void):Void {
 		final opts = options;
 		opts.discover = true;
-		manifestlist(loader.baseDir, opts).next((modules) -> new Promise((resolve, reject) -> {
-			registerModules(loader, modules, (err) -> {
-				if (err != null) {
-					reject(err);
-					return;
-				}
-
-				resolve(modules);
-			});
-			return null;
-		}).handle((cb) -> {
+		manifestlist(loader.baseDir, opts).handle((cb) -> {
 			switch cb {
 				case Success(modules): {
-						callback(null, modules);
+						registerModules(loader, modules, (err) -> {
+							if (err != null) {
+								callback(err, null);
+								return;
+							}
+							callback(null, modules);
+						});
 					}
-				case Failure(failure): {
-						callback(failure, null);
+				case Failure(err): {
+						callback(err, null);
 					}
 			}
-		}));
+		});
 	}
 
 	function registerModules(loader:ComponentLoader, modules:Array<ManifestModule>, callback:(err:Error) -> Void):Void {
+		final componentLoaders = [];
 		Promise.inParallel(modules.map((m) -> {
 			if (m.icon != null) {
 				loader.setLibraryIcon(m.name, m.icon);
 			}
-			// if(m.zenflo != null && m.zenflo["loader"] != null){
-			// Todo: 3rd party custom loaders
-			// }
+			if (m.zenflo != null && m.zenflo["loader"] != null) {
+				final loaderPath = Path.join([loader.baseDir, m.base, m.zenflo["loader"]]);
+				componentLoaders.push(loaderPath);
+			}
 			return Promise.inParallel(m.components.map((c) -> new Promise((resolve, reject) -> {
 				final language = Path.extension(c.path);
 				if (language == "hscript" /* && language == "wren" && language == "lua" && language == "cppia"*/) {
+					#if (sys || hxnodejs)
 					#if sys
 					final source = File.getContent(Path.join([loader.baseDir, c.path]));
+					#else
+					final source = js.node.Fs.readFileSync(Path.join([loader.baseDir, c.path]), 'utf8');
+					#else
+					throw new Error('no support for module on this target');
+					#end
 					return loadAndRegisterModuleSource(loader, m, c, source, language).handle((cb) -> {
 						switch cb {
 							case Success(data): {
 									resolve(modules);
+									callback(null);
 								}
 							case Failure(err): {
 									reject(err);
+									callback(err);
 								}
 						}
 					});
 					#end
 					// Todo, browser loader for components
 				}
-				reject(new Error("Unsupported component language"));
+
+				// reject(new Error("Unsupported component language"));
 				return null;
 			})));
-		}));
+		})).handle((cb) -> {
+			switch cb {
+				case Success(_): {
+						registerCustomLoaders(loader, componentLoaders, callback);
+					}
+				case Failure(err): {
+						callback(err);
+					}
+			}
+		});
+	}
+
+	function registerCustomLoaders(loader:ComponentLoader, componentLoaders:Array<String>, callback:(err:Error) -> Void) {
+		Lambda.fold(componentLoaders, (componentLoader:String, chain:Promise<Any>) -> {
+			return chain.next((_) -> {
+				return new Promise((resolve, reject) -> {
+					if (Path.extension(componentLoader) == 'hscript') {
+						#if (sys || hxnodejs)
+						#if sys
+						final source = File.getContent(Path.join([loader.baseDir, componentLoader]));
+						#else
+						final source = js.node.Fs.readFileSync(Path.join([loader.baseDir, componentLoader]), 'utf8');
+						#end
+						#else
+						throw new Error('no method supported for custom loader on this target');
+						#end
+
+						final parser = new hscript.Parser();
+						parser.allowJSON = true;
+						var interp = new hscript.Interp();
+						final exp = parser.parseString(source);
+
+						final loaderFunction = (loader:ComponentLoader, callback:(err:Error) -> Void) -> {
+							interp.variables.set("Loader", loader);
+							interp.variables.set("done", callback);
+							interp.variables.set("Array", Array);
+							interp.variables.set("DateTools", DateTools);
+							interp.variables.set("Math", Math);
+							interp.variables.set("StringTools", StringTools);
+							#if (sys || hxnodejs)
+							interp.variables.set("Sys", Sys);
+							#end
+							interp.variables.set("Xml", Xml);
+							interp.variables.set("Json", haxe.Json);
+							interp.variables.set("Http", haxe.Http);
+							interp.variables.set("Serializer", haxe.Serializer);
+							interp.variables.set("Unserializer", haxe.Unserializer);
+							final log = new DebugComponent('zenflo:CustomLoader');
+							interp.variables.set("log", log);
+
+							interp.execute(exp);
+						};
+
+						loader.registerLoader(loaderFunction, (err) -> {
+							if (err != null) {
+								reject(err);
+								return;
+							}
+							resolve(Noise);
+						});
+					}
+
+					return null;
+				});
+			});
+		}, Promise.resolve(null));
 	}
 
 	function readCache(loader:ComponentLoader, manifestOptions:ManifestOptions):Promise<ManifestDocument> {
@@ -239,18 +366,22 @@ class ManifestLoader {
 	function writeCache(loader:ComponentLoader, options:ManifestOptions, manifestContents:ManifestDocument):Promise<ManifestDocument> {
 		final manifestName = options.manifest != null ? options.manifest : 'fbp.json';
 		final contents = Json.stringify(manifestContents, null, "  ");
-		#if sys
+		#if (sys || hxnodejs)
 		try {
 			final filePath = Path.join([loader.baseDir, manifestName]);
+			#if sys
 			final writer = File.write(filePath, false);
 			writer.writeString(contents, Encoding.UTF8);
+			#else
+			js.node.Fs.writeFileSync(filePath, contents);
+			#end
 		} catch (e) {
 			final log = new DebugComponent("zenflo:io");
 			log.Error('Unable to write manifest cache : $e');
 		}
 		return Promise.resolve(manifestContents);
-		#elseif js.Syntax.code
-		("localStorage.setItem('zenflo-manifest-cache', {0})", contents);
+		#elseif (!sys || !hxnodejs)
+		js.Syntax.code("localStorage.setItem('zenflo-manifest-cache', {0})", contents);
 		return Promise.resolve(manifestContents);
 		#end
 
@@ -290,6 +421,8 @@ class ManifestLoader {
 					}
 					callback(null, manifestContents.modules);
 				});
+
+				return null;
 			})
 			.mapError((err) -> {
 				callback(err, null);
@@ -320,7 +453,7 @@ class ManifestLoader {
 
 	function hscriptSourceLoader(loader:ComponentLoader, module:ManifestModule, component:ManifestComponent, source:String, resolve:Noise->Void,
 			reject:Error->Void) {
-		final c = new Component({
+		final c = new zenflo.lib.Component({
 			description: component.description,
 			icon: module.icon
 		});
@@ -333,13 +466,15 @@ class ManifestLoader {
 		}
 
 		final parser = new hscript.Parser();
+		parser.allowJSON = true;
 		var interp = new hscript.Interp();
 		final exp = parser.parseString(source);
 
-		c.process((input, output, _) -> {
+		c.process((input, output, context) -> {
 			var proc = {
 				"input": input,
-				"output": output
+				"output": output,
+				"context": context
 			};
 
 			interp.variables.set("Process", proc);
@@ -347,21 +482,21 @@ class ManifestLoader {
 			interp.variables.set("DateTools", DateTools);
 			interp.variables.set("Math", Math);
 			interp.variables.set("StringTools", StringTools);
-			#if sys
+			#if (sys || hxnodejs)
 			interp.variables.set("Sys", Sys);
 			#end
 			interp.variables.set("Xml", Xml);
-			#if sys
-			interp.variables.set("sys", {
-				"FileSystem": sys.FileSystem,
-				"io": {
-					"File": sys.io.File
-				},
-				"net": {
-					"Host": sys.net.Host
-				}
-			});
-			#end
+			// #if (sys || hxnodejs)
+			// interp.variables.set("sys", {
+			// 	"FileSystem": sys.FileSystem,
+			// 	"io": {
+			// 		"File": sys.io.File
+			// 	},
+			// 	"net": {
+			// 		"Host": sys.net.Host
+			// 	}
+			// });
+			// #end
 			interp.variables.set("Json", haxe.Json);
 			interp.variables.set("Http", haxe.Http);
 			interp.variables.set("Serializer", haxe.Serializer);
@@ -374,9 +509,11 @@ class ManifestLoader {
 			}
 
 			interp.execute(exp);
+
+			return null;
 		});
 
-		loader.registerComponent(module.name, component.name, (_) -> c, (err) -> {
+		loader.registerComponent(module.name, component.name, (_)-> c, (err) -> {
 			if (err != null) {
 				reject(err);
 				return;

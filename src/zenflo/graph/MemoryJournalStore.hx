@@ -5,7 +5,7 @@ package zenflo.graph;
  *
  */
 class MemoryJournalStore extends JournalStore {
-	public var transactions:ZArray<ZArray<TransactionEntry>>;
+	public var transactions:Array<Array<TransactionEntry>>;
 
 	public function new(graph:Graph) {
 		super(graph);
@@ -13,15 +13,16 @@ class MemoryJournalStore extends JournalStore {
 	}
 
 	override public function countTransactions():Int {
-		return this.transactions.size;
+		return this.transactions.length;
 	}
 
-	public override function putTransaction(revId:Int, entries:ZArray<TransactionEntry>) {
+	public override function putTransaction(revId:Int, entries:Array<TransactionEntry>) {
 		super.putTransaction(revId, entries);
 		this.transactions.insert(revId,entries);
 	}
 
-	override public function fetchTransaction(revId:Int):ZArray<TransactionEntry> {
+	override public function fetchTransaction(revId:Int):Array<TransactionEntry> {
+		// trace(this.transactions);
 		return this.transactions[revId];
 	}
 }

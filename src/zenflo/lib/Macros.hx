@@ -1,5 +1,7 @@
 package zenflo.lib;
 
+using haxe.macro.ExprTools;
+
 /**
 	## asComponent generator API
 
@@ -17,8 +19,8 @@ package zenflo.lib;
 		});
 	```
 **/
-#if macro
-macro function asComponent(fun:haxe.macro.Expr, ?options:zenflo.lib.Component.ComponentOptions) {
+
+macro function asComponent(fun:haxe.macro.Expr, ?options:haxe.macro.Expr) {
 	return switch fun.expr {
 		case EFunction(kind, f): {
 				var args = f.args;
@@ -32,6 +34,7 @@ macro function asComponent(fun:haxe.macro.Expr, ?options:zenflo.lib.Component.Co
 					paramNames.push(v);
 				}
 
+			
 				var resIsPromise = macro false;
 
 				switch f.ret {
@@ -53,7 +56,7 @@ macro function asComponent(fun:haxe.macro.Expr, ?options:zenflo.lib.Component.Co
 
 				var body = macro {
 					final pNames = $v{paramNames}; // [for(x in ) {name:${x.name}, options: ${x.options}}];
-					var c = new zenflo.lib.Component($v{options});
+					var c = new zenflo.lib.Component($options);
 
 					for (p in pNames) {
 						c.inPorts.add(p.name, p.options);
@@ -65,18 +68,17 @@ macro function asComponent(fun:haxe.macro.Expr, ?options:zenflo.lib.Component.Co
 					c.outPorts.add('out');
 					c.outPorts.add('error');
 
-					c.process((input, output, _) -> {
+					c.process((input:zenflo.lib.ProcessInput, output:zenflo.lib.ProcessOutput, _) -> {
 						var values:Array<String> = [];
 						if (pNames.length != 0) {
-							for (p in pNames) {
-								if (!input.hasData(p.name)) {
-									return tink.core.Promise.resolve(null);
-								}
+							var params:haxe.Rest<String> = [for(p in pNames) p.name];
+							if (!input.hasData(params)) {
+								return null;
 							}
 							values = pNames.map((p) -> input.getData(p));
 						} else {
 							if (!input.hasData('in')) {
-								return tink.core.Promise.resolve(null);
+								return null;
 							}
 							input.getData('in');
 							values = [];
@@ -103,17 +105,17 @@ macro function asComponent(fun:haxe.macro.Expr, ?options:zenflo.lib.Component.Co
 							output.sendDone(res);
 						}
 
-						return tink.core.Promise.resolve(null);
+						return null;
 					});
 					return c;
 				};
-
+				// trace(body.toString());
 				return body;
 			}
 		case _: macro {throw "unable to generate Component from Function";};
 	}
 }
-#end
+
 
 function asPromise(component:Dynamic, options:Dynamic):tink.core.Promise<Dynamic> {
 	return null;

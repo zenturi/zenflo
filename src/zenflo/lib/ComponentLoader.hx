@@ -64,7 +64,6 @@ class ComponentLoader {
 
 	public function listComponents():Promise<ComponentList> {
 		var promise = null;
-		
 		if (this.processing != null) {
 			promise = this.processing;
 		} else if (this.ready && this.components != null) {
@@ -73,7 +72,7 @@ class ComponentLoader {
 			this.components = new ComponentList();
 			this.ready = false;
 			this.processing = new Promise((resolve, reject) -> {
-				RegisterLoader.register(this, (err:Error) -> {
+				RegisterLoader.register(this, (err:Error, modules:Array<Dynamic>) -> {
 					if (err != null) {
 						// We keep the failed promise here in this.processing
 						reject(err);
@@ -98,7 +97,7 @@ class ComponentLoader {
 		be loaded as an instance of the ZenFlo subgraph
 		component.
 	**/
-	public function load(name:String, meta:GraphNodeMetadata):Promise<Any> {
+	public function load(name:String, ?meta:GraphNodeMetadata):Promise<zenflo.lib.Component> {
 		var metadata = meta;
 		
 		if (!this.ready) {
@@ -127,13 +126,14 @@ class ComponentLoader {
 					return null;
 				}
 			}
+	
 			resolve(component);
 			return null;
 		}).next((component:Dynamic) -> {
 			if (this.isGraph(component)) {
-				return this.loadGraph(name, component, metadata);
+				return cast this.loadGraph(name, component, metadata);
 			}
-
+	
 			return this.createComponent(name, component, metadata).next((instance) -> {
 				if (instance == null) {
 					return Promise.reject(new Error('Component ${name} could not be loaded.'));
@@ -148,7 +148,7 @@ class ComponentLoader {
 				}
 
 				this.setIcon(name, inst);
-				return cast inst;
+				return inst;
 			});
 		});
 	}
@@ -156,7 +156,7 @@ class ComponentLoader {
 	/**
 		Creates an instance of a component.
 	**/
-	public function createComponent(name:String, component:Dynamic, metadata:GraphNodeMetadata):Promise<Any> {
+	public function createComponent(name:String, component:Dynamic, metadata:GraphNodeMetadata):Promise<zenflo.lib.Component> {
 		final implementation:Dynamic = component;
 		if (implementation == null) {
 			return Promise.reject(new Error('Component ${name} not available'));
@@ -215,9 +215,10 @@ class ComponentLoader {
 		if ((Std.isOfType(cPath, Graph)) && cPath.processes && cPath.connections) {
 			return true;
 		}
-		if (Std.isOfType(cPath, String)) {
+		if (!Std.isOfType(cPath, String)) {
 			return false;
 		}
+		
 		// Graph file path
 		return (cPath.indexOf('.fbp') != -1) || (cPath.indexOf('.json') != -1);
 	}
