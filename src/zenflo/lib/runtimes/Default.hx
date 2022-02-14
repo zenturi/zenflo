@@ -70,6 +70,7 @@ class DefaultRuntime implements Runtime {
 	}
 
 	function listComponents(componentDir:String, options:ManifestOptions):Promise<Array<ManifestComponent>> {
+		if(!FileSystem.exists(componentDir)) return Promise.resolve([]);
 		final entries = FileSystem.readDirectory(componentDir);
 
 		final potentialComponents = entries.filter((c) -> ['hscript', 'wren', 'lua', 'cppia'].contains(Path.extension(c)));
