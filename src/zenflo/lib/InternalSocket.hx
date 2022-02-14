@@ -217,7 +217,7 @@ class InternalSocket extends EventEmitter {
 
 	public function post(packet:Dynamic, autoDisconnect = true) {
 		var ip = packet;
-
+		
 		if ((ip == null) && Reflect.isFunction(this.dataDelegate)) {
 			ip = this.dataDelegate();
 		}
@@ -309,12 +309,12 @@ class InternalSocket extends EventEmitter {
 	**/
 	public function getId() {
 		final fromStr = (from:Link) -> '${from.process.id}() ${from.port.toUpperCase()}';
-		final toStr = (to:Link) -> '${to.port.toUpperCase}() ${to.process.id}';
+		final toStr = (to:Link) -> '${to.port.toUpperCase()} ${to.process.id}()';
 
 		if (this.from == null && this.to == null) {
 			return 'UNDEFINED';
 		}
-		if (this.from == null && this.to == null) {
+		if (this.from != null && this.to == null) {
 			return '${fromStr(this.from)} -> ANON';
 		}
 		if (this.from == null) {
@@ -331,7 +331,8 @@ class InternalSocket extends EventEmitter {
 			return;
 		}
 
-	
+		
+
 		if (!this.isConnected() && autoConnect && (this.brackets.length == 0)) {
 			// Connect before sending
 			this.connect();
@@ -343,6 +344,8 @@ class InternalSocket extends EventEmitter {
 		if (isIP && (ip.type == OpenBracket)) {
 			this.brackets.push(ip.data);
 		}
+
+		
 		
 		if (event == 'endgroup') {
 			// Prevent closing already closed groups
@@ -361,9 +364,10 @@ class InternalSocket extends EventEmitter {
 			this.brackets.pop();
 		}
 		
-	
+
 		// Emit the IP Object
 		this.emitEvent('ip', ip);
+
 		// Emit the legacy event
 		if (ip == null || ip.type == null) {
 			return;

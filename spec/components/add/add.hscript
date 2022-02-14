@@ -1,0 +1,12 @@
+// Add two numbers
+
+if(!Process.input.hasData('augend', 'addend')) return;
+
+var d = Process.input.getData('augend', 'addend');
+
+var augend = d[0];
+var addend = d[1];
+
+Process.output.sendDone({
+      sum: augend + addend,
+});

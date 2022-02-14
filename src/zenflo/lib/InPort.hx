@@ -290,7 +290,6 @@ class InPort extends BasePort {
 	 * @param {HasValidationCallback} [validate]
 	 */
 	public function has(scope:Dynamic, index:Dynamic, ?validate:HasValidationCallback) {
-		
 		var valid = validate;
 
 		/** @type {number|null} */

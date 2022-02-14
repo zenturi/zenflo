@@ -154,7 +154,10 @@ class OutPort extends BasePort {
 				}
 		}
 
+	
+
 		final sockets = this.getSockets(idx);
+
 		
 		this.checkRequired(sockets);
 
@@ -166,6 +169,8 @@ class OutPort extends BasePort {
 			// Stamp non-specific IP objects with port schema
 			ip.schema = this.getSchema();
 		}
+
+		
 
 		final cachedData = this.cache['${idx}'] != null ? this.cache['${idx}'].data : null;
 		if (this.isCaching() && data != cachedData) {

@@ -119,6 +119,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 					mapIsInPorts = true;
 				}
 			}
+			
 		}
 
 		if ((componentPorts.length == 1) && !mapIsInPorts) {
@@ -130,6 +131,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			throw new Error('Port must be specified for sending output');
 		}
 
+	
 		if (output != null) {
 			final keys:Array<String> = Reflect.fields(output);
 			for (port in keys) {
@@ -202,7 +204,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			}
 			return false;
 		};
-		// trace(this.nodeInstance.isOrdered(), isLast());
+	
 		if (this.nodeInstance.isOrdered() && isLast()) {
 			// We're doing bracket forwarding. See if there are
 			// dangling closeBrackets in buffer since we're the

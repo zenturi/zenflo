@@ -182,7 +182,7 @@ class Component extends EventEmitter {
 	}
 
 	public function isSubgraph():Bool {
-		throw false;
+		return false;
 	}
 
 	/**
@@ -270,10 +270,20 @@ class Component extends EventEmitter {
 		if (this.isStarted()) {
 			promise = Promise.resolve(null);
 		} else {
-			promise = this.setUp().next((_) -> {
-				this.started = true;
-				this.emit('start');
-				return Promise.resolve(null);
+			promise = new Promise((resolve, reject)->{
+				this.setUp().handle((_) -> {
+					switch(_){
+						case Success(_):{
+							this.started = true;
+							this.emit('start');
+							resolve(null);
+						}
+						case Failure(err):{
+							resolve(err);
+						}
+					}
+				});
+				return null;
 			});
 		}
 		return promise;
@@ -640,7 +650,9 @@ class Component extends EventEmitter {
 		/** @type {ProcessResult} */
 		var result:ProcessResult = {};
 
+	
 		if (this.isForwardingInport(port)) {
+			
 			// For bracket-forwarding inports we need to initialize a bracket context
 			// so that brackets can be sent as part of the output, and closed after.
 			if (ip.type == OpenBracket) {
@@ -691,6 +703,8 @@ class Component extends EventEmitter {
 			port: port,
 			result: result
 		});
+
+	
 		final input = new ProcessInput(this.inPorts, context);
 		final output = new ProcessOutput(this.outPorts, context);
 		try {
@@ -717,6 +731,7 @@ class Component extends EventEmitter {
 			this.deactivate(context);
 			output.sendDone(e);
 		}
+
 
 		if (context.activated) {
 			return;

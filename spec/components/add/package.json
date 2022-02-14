@@ -1,0 +1,21 @@
+{
+    "name": "add",
+    "path": "/components/add/add.hscript",
+    "source": "/components/add/add.hscript",
+    "inports": [{
+            "name": "augend",
+            "dataType": "number",
+            "required": true
+        },
+        {
+            "name": "addend",
+            "dataType": "number",
+            "required": true,
+            "control": true
+        }
+    ],
+    "outports": [{
+        "name": "sum",
+        "dataType": "number"
+    }]
+}

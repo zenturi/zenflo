@@ -34,40 +34,49 @@ typedef NetworkEvent = {
 }
 
 function connectPort(socket:InternalSocket, process:NetworkProcess, port:String, index:Null<Int>, inbound:Bool):Promise<InternalSocket> {
-	if (inbound) {
-		socket.to = {
+	return new Promise((resolve, reject) -> {
+		if (inbound) {
+			socket.to = {
+				process: process,
+				port: port,
+				index: index
+			};
+
+			if (process.component == null || process.component.inPorts == null || process.component.inPorts.ports.get(port) == null) {
+				reject(new Error('No inport \'${port}\' defined in process ${process.id} (${socket.getId()})'));
+				return null;
+			}
+			if (process.component.inPorts.ports[port].isAddressable()) {
+				process.component.inPorts.ports[port].attach(socket, index);
+				resolve(socket);
+				return null;
+			}
+			process.component.inPorts.ports[port].attach(socket);
+			resolve(socket);
+			return null;
+		}
+
+		socket.from = {
 			process: process,
 			port: port,
 			index: index
 		};
 
-		if (process.component == null || process.component.inPorts == null || process.component.inPorts.ports.get(port) == null) {
-			return Promise.reject(new Error('No inport \'${port}\' defined in process ${process.id} (${socket.getId()})'));
+		if (process.component == null || process.component.outPorts == null || !process.component.outPorts.ports.exists(port)) {
+			reject(new Error('No outport \'${port}\' defined in process ${process.id} (${socket.getId()})'));
+			return null;
 		}
-		if (process.component.inPorts.ports[port].isAddressable()) {
-			process.component.inPorts.ports[port].attach(socket, index);
-			return Promise.resolve(socket);
+
+		if (process.component.outPorts.ports[port].isAddressable()) {
+			process.component.outPorts.ports[port].attach(socket, index);
+			resolve(socket);
+			return null;
 		}
-		process.component.inPorts.ports[port].attach(socket);
-		return Promise.resolve(socket);
-	}
+		process.component.outPorts.ports[port].attach(socket);
+		resolve(socket);
 
-	socket.from = {
-		process: process,
-		port: port,
-		index: index
-	};
-
-	if (process.component == null || process.component.outPorts == null || !process.component.outPorts.ports.exists(port)) {
-		return Promise.reject(new Error('No outport \'${port}\' defined in process ${process.id} (${socket.getId()})'));
-	}
-
-	if (process.component.outPorts.ports[port].isAddressable()) {
-		process.component.outPorts.ports[port].attach(socket, index);
-		return Promise.resolve(socket);
-	}
-	process.component.outPorts.ports[port].attach(socket);
-	return Promise.resolve(socket);
+		return null;
+	});
 }
 
 typedef NetworkOwnOptions = {
@@ -133,10 +142,10 @@ class BaseNetwork extends EventEmitter {
 		#if !js
 		this.baseDir = options.baseDir != null ? options.baseDir : graph.properties.baseDir != null ? graph.properties.baseDir : Sys.getCwd();
 		#else
-		#if nodejs 
-			this.baseDir = options.baseDir != null ? options.baseDir : graph.properties.baseDir != null ? graph.properties.baseDir : untyped __js__("process.cwd()");
-		#else 
-			this.baseDir = options.baseDir != null ? options.baseDir : graph.properties.baseDir != null ? graph.properties.baseDir : '/';
+		#if nodejs
+		this.baseDir = options.baseDir != null ? options.baseDir : graph.properties.baseDir != null ? graph.properties.baseDir : untyped __js__("process.cwd()");
+		#else
+		this.baseDir = options.baseDir != null ? options.baseDir : graph.properties.baseDir != null ? graph.properties.baseDir : '/';
 		#end
 		#end
 
@@ -257,7 +266,7 @@ class BaseNetwork extends EventEmitter {
 						node: payload.socket.to.process.id,
 						port: payload.socket.to.port
 					} : null;
-					if(this.flowtrace != null){
+					if (this.flowtrace != null) {
 						this.flowtrace.addNetworkPacket('network:${type}', src, tgt, this.flowtraceName, {
 							subgraph: payload.subgraph,
 							group: payload.group,
@@ -266,19 +275,21 @@ class BaseNetwork extends EventEmitter {
 							data: payload.data,
 						});
 					}
-					
 				}
 			case 'start':
 				{
-					if(this.flowtrace != null) this.flowtrace.addNetworkStarted(this.flowtraceName);
+					if (this.flowtrace != null)
+						this.flowtrace.addNetworkStarted(this.flowtraceName);
 				}
 			case 'end':
 				{
-					if(this.flowtrace != null) this.flowtrace.addNetworkStopped(this.flowtraceName);
+					if (this.flowtrace != null)
+						this.flowtrace.addNetworkStopped(this.flowtraceName);
 				}
 			case 'error':
 				{
-					if(this.flowtrace != null) this.flowtrace.addNetworkError(this.flowtraceName, payload);
+					if (this.flowtrace != null)
+						this.flowtrace.addNetworkError(this.flowtraceName, payload);
 				}
 			default:
 				{
@@ -355,7 +366,10 @@ class BaseNetwork extends EventEmitter {
 		var promise:Promise<NetworkProcess> = new Promise(null);
 
 		if (this.processes[node.id] != null) {
-			promise = Promise.resolve(this.processes[node.id]);
+			promise = new Promise((resolve, _) -> {
+				resolve(this.processes[node.id]);
+				return null;
+			});
 		} else {
 			/** @type {NetworkProcess} */
 			final process:NetworkProcess = {id: node.id, component: null, componentName: ""};
@@ -363,40 +377,51 @@ class BaseNetwork extends EventEmitter {
 			// No component defined, just register the process but don't start.
 			if (node.component == null) {
 				this.processes[process.id] = process;
-				promise = Promise.resolve(process);
+				promise = new Promise((resolve, _) -> {
+					resolve(process);
+					return null;
+				});
 			} else {
 				// Load the component for the process.
-				promise = this.load(node.component, node.metadata).next((instance) -> {
-					cast(instance, Component).nodeId = node.id;
-					process.component = cast instance;
-					process.componentName = node.component;
+				promise = new Promise((resolve, reject) -> {
+					this.load(node.component, node.metadata).handle((cb) -> {
+						switch (cb) {
+							case Success(instance): {
+									cast(instance, Component).nodeId = node.id;
+									process.component = cast instance;
+									process.componentName = node.component;
 
-					// Inform the ports of the node name
-					final inPorts:DynamicAccess<InPort> = cast process.component.inPorts.ports;
-					final outPorts:DynamicAccess<OutPort> =cast  process.component.outPorts.ports;
+									// Inform the ports of the node name
+									final inPorts:DynamicAccess<InPort> = cast process.component.inPorts.ports;
+									final outPorts:DynamicAccess<OutPort> = cast process.component.outPorts.ports;
 
-					for (index => name in inPorts.keys()) {
-						final port = inPorts[name];
-						port.node = node.id;
-						port.nodeInstance = instance;
-						port.name = name;
-					}
+									for (name => port in inPorts) {
+										port.node = node.id;
+										port.nodeInstance = instance;
+										port.name = name;
+									}
 
-					for (index => name in outPorts.keys()) {
-						final port = outPorts[name];
-						port.node = node.id;
-						port.nodeInstance = instance;
-						port.name = name;
-					}
+									for (name => port in outPorts) {
+										port.node = node.id;
+										port.nodeInstance = instance;
+										port.name = name;
+									}
 
-					if (cast(instance, Component).isSubgraph()) {
-						this.subscribeSubgraph(process);
-					}
-					this.subscribeNode(process);
+									if (cast(instance, Component).isSubgraph()) {
+										this.subscribeSubgraph(process);
+									}
 
-					// Store and return the process instance
-					this.processes[process.id] = process;
-					return process;
+									this.subscribeNode(process);
+
+									// Store and return the process instance
+									this.processes[process.id] = process;
+									resolve(process);
+								}
+							case Failure(err): {
+									reject(err);
+								}
+						}
+					});
 				});
 			}
 		}
@@ -468,40 +493,75 @@ class BaseNetwork extends EventEmitter {
 	}
 
 	public function connect():Promise<BaseNetwork> {
-		var promise = new Promise<BaseNetwork>(null);
+		var promise = new Promise<BaseNetwork>((resolve, _) -> {
+			resolve(null);
+			return null;
+		});
 		final handleAll = (key:Array<Any>, method:Function) -> {
-			return Lambda.fold(key, (entity:Any, next:Promise<Any>) -> {
-				next.next((_) -> method(entity, {initial: true}));
+			final f = Lambda.fold(key, (entity:Any, next:Promise<Any>) -> {
+				return next.next((_) -> {
+					return method(entity, {initial: true});
+				});
 			}, Promise.resolve(null));
+			return f;
 		}
 
-		promise = Promise.resolve(null)
-			.next((_) -> handleAll(this.graph.nodes, this.addNode.bind()))
-			.next((_) -> handleAll(this.graph.edges, this.addEdge.bind()))
-			.next((_) -> handleAll(this.graph.initializers, this.addInitial.bind()))
-			.next((_) -> handleAll(this.graph.nodes, this.addDefaults.bind()))
-			.next((_) -> this);
-		return promise;
+		return Promise.inSequence([
+			handleAll(this.graph.nodes.toArray(), this.addNode),
+			handleAll(this.graph.edges.toArray(), this.addEdge),
+			handleAll(this.graph.initializers, this.addInitial),
+			handleAll(this.graph.nodes.toArray(), this.addDefaults)
+		]).next((_) -> {
+			return this;
+		});
 	}
 
 	public function addEdge(edge:GraphEdge, options:Dynamic):Promise<InternalSocket> {
-		return this.ensureNode(edge.from.node, 'outbound').next((from) -> {
-			final socket = InternalSocket.createSocket(edge.metadata, {
-				debug: this.debug,
-				async: this.asyncDelivery,
-			});
-			return this.ensureNode(edge.to.node, 'inbound')
-				.next((to) -> {
-					// Subscribe to events from the socket
-					this.subscribeSocket(socket, from);
+		return new Promise((resolve, reject) -> {
+			this.ensureNode(edge.from.node, 'outbound').handle((cb) -> {
+				trace(cb);
+				switch cb {
+					case Success(from): {
+							final socket = InternalSocket.createSocket(edge.metadata, {
+								debug: this.debug,
+								async: this.asyncDelivery,
+							});
 
-					return connectPort(socket, to, edge.to.port, edge.to.index, true);
-				})
-				.next((_) -> connectPort(socket, from, edge.from.port, edge.from.index, false))
-				.next((_) -> {
-					this.connections.push(socket);
-					return socket;
-				});
+							Promise.inSequence([
+								new Promise((resolve, reject) -> {
+									this.ensureNode(edge.to.node, 'inbound').handle((cb) -> {
+										switch cb {
+											case Success(to): {
+													this.subscribeSocket(socket, from);
+													connectPort(socket, to, edge.to.port, edge.to.index, true).handle(cb -> {
+														switch cb {
+															case Success(v): resolve(v);
+															case Failure(err): reject(err);
+														}
+													});
+												}
+											case Failure(err): reject(err);
+										}
+									});
+									return null;
+								}),
+								connectPort(socket, from, edge.from.port, edge.from.index, false),
+							]).handle((cb) -> {
+								switch cb {
+									case Success(v): {
+											this.connections.push(socket);
+											resolve(socket);
+										}
+									case Failure(err): reject(err);
+								}
+							});
+						}
+					case Failure(err): {
+							reject(err);
+						}
+				}
+			});
+			return null;
 		});
 	}
 
@@ -528,35 +588,52 @@ class BaseNetwork extends EventEmitter {
 	}
 
 	public function addInitial(initializer:GraphIIP, options:Dynamic):Promise<InternalSocket> {
-		return this.ensureNode(initializer.to.node, 'inbound').next((to) -> {
-			final socket = InternalSocket.createSocket(initializer.metadata, {
-				debug: this.debug,
-				async: this.asyncDelivery,
+		return new Promise((resolve, reject) -> {
+			this.ensureNode(initializer.to.node, 'inbound').handle((cb) -> {
+				switch (cb) {
+					case Success(to): {
+							final socket = InternalSocket.createSocket(initializer.metadata, {
+								debug: this.debug,
+								async: this.asyncDelivery,
+							});
+
+							// Subscribe to events from the socket
+							this.subscribeSocket(socket);
+							connectPort(socket, to, initializer.to.port, initializer.to.index, true).handle((cb) -> {
+								switch (cb) {
+									case Success(socket): {
+											this.connections.push(socket);
+											final init = {
+												socket: socket,
+												data: initializer.from.data,
+											};
+											this.initials.push(init);
+											this.nextInitials.push(init);
+											if (this.isRunning()) {
+												// Network is running now, send initials immediately
+												this.sendInitials();
+											} else if (!this.isStopped()) {
+												// Network has finished but hasn't been stopped, set
+												// started and set
+												this.setStarted(true);
+												this.sendInitials();
+											}
+											resolve(socket);
+										}
+									case Failure(err): {
+											reject(err);
+										}
+								}
+							});
+						}
+					case Failure(err): {
+							reject(err);
+						}
+				}
 			});
 
-			// Subscribe to events from the socket
-			this.subscribeSocket(socket);
-
-			return connectPort(socket, to, initializer.to.port, initializer.to.index, true);
-		}).next((socket) -> {
-			this.connections.push(socket);
-			final init = {
-				socket: socket,
-				data: initializer.from.data,
-			};
-			this.initials.push(init);
-			this.nextInitials.push(init);
-			if (this.isRunning()) {
-				// Network is running now, send initials immediately
-				(this.sendInitials)();
-			} else if (!this.isStopped()) {
-				// Network has finished but hasn't been stopped, set
-				// started and set
-				this.setStarted(true);
-				(this.sendInitials)();
-			}
-			return socket;
-		});
+			return null;
+		}).next((_) -> _);
 	}
 
 	public function removeInitial(initializer:GraphIIP):Promise<Any> {
@@ -596,29 +673,57 @@ class BaseNetwork extends EventEmitter {
 	}
 
 	public function addDefaults(node:GraphNode, options:Dynamic):Promise<Any> {
-		return this.ensureNode(node.id, 'inbound').next((process) -> Promise.inParallel(process.component.inPorts.ports.keys().map((key) -> {
-			// Attach a socket to any defaulted inPorts as long as they aren't already attached.
-			final port:InPort = cast process.component.inPorts.ports[key];
-			if (!port.hasDefault() || port.isAttached()) {
-				return Promise.resolve(0);
-			}
-			final socket = InternalSocket.createSocket({}, {
-				debug: this.debug,
-				async: this.asyncDelivery,
-			});
+		return new Promise((resolve, reject) -> {
+			this.ensureNode(node.id, 'inbound').handle((cb) -> {
+				switch (cb) {
+					case Success(process): {
+							Promise.inParallel(process.component.inPorts.ports.keys().map((key) -> {
+								// Attach a socket to any defaulted inPorts as long as they aren't already attached.
+								final port:InPort = cast process.component.inPorts.ports[key];
 
-			// Subscribe to events from the socket
-			this.subscribeSocket(socket);
+								if (!port.hasDefault() || port.isAttached()) {
+									return new Promise((resolve, _) -> {
+										resolve(null);
+										return null;
+									});
+								}
+								final socket = InternalSocket.createSocket({}, {
+									debug: this.debug,
+									async: this.asyncDelivery,
+								});
 
-			return connectPort(socket, process, key, null, true).next((_) -> {
-				this.connections.push(socket);
-				this.defaults.push(socket);
+								// Subscribe to events from the socket
+								this.subscribeSocket(socket);
+
+								return connectPort(socket, process, key, null, true).next((_) -> {
+									this.connections.push(socket);
+									this.defaults.push(socket);
+
+									return null;
+								});
+							})).handle((cb) -> {
+								switch (cb) {
+									case Success(x): {
+											resolve(x);
+										}
+									case Failure(err): {
+											reject(err);
+										}
+								}
+							});
+						}
+					case Failure(err): {
+							reject(err);
+						}
+				}
 			});
-		}))).next((_) -> null);
+			return null;
+		});
 	}
 
 	public function ensureNode(node:String, direction:String):Promise<NetworkProcess> {
 		final instance = this.getNode(node);
+
 		if (instance == null) {
 			return Promise.reject(new Error('No process defined for ${direction} node ${node}'));
 		}
@@ -634,7 +739,11 @@ class BaseNetwork extends EventEmitter {
 				return null;
 			});
 		}
-		return Promise.resolve(instance);
+
+		return new Promise((resolve, _) -> {
+			resolve(instance);
+			null;
+		});
 	}
 
 	public function setFlowtrace(flowtrace:Dynamic, ?name:String, main = true) {
@@ -799,20 +908,24 @@ class BaseNetwork extends EventEmitter {
 	}
 
 	public function sendInitials() {
-		return new Promise((resolve:Dynamic, _) -> {
-			Timer.delay(resolve, 0);
-			return null;
-		}).next((_) -> Lambda.fold(this.initials, (initial, chain:Promise<Any>) -> {
+		if (this.initials.length == 0) {
+			return new Promise((resolve, _) -> {
+				resolve(null);
+				return null;
+			});
+		}
+
+		return Lambda.fold(this.initials, (initial, chain:Promise<Any>) -> {
 			return chain.next((_) -> {
 				initial.socket.post(new IP(DATA, initial.data, {
 					initial: true,
 				}));
-				return Promise.resolve(null);
+				return null;
 			});
-		}, Promise.resolve(null))).next((_) -> {
+		}, Promise.resolve([])).next((_) -> {
 			// Clear the list of initials to still be sent
 			this.initials = [];
-			return Promise.resolve(null);
+			return null;
 		});
 	}
 
@@ -824,6 +937,7 @@ class BaseNetwork extends EventEmitter {
 		if (this.started == started) {
 			return;
 		}
+
 		if (!started) {
 			// Ending the execution
 			this.started = false;
@@ -903,7 +1017,7 @@ class BaseNetwork extends EventEmitter {
 		if (this.isRunning()) {
 			return;
 		}
-
+		this.abortDebounce = null;
 		// this.abortDebounce;
 		if (this.debouncedEnd == null) {
 			this.debouncedEnd = Utils.debounce(() -> {
@@ -916,19 +1030,23 @@ class BaseNetwork extends EventEmitter {
 				this.setStarted(false);
 			}, 50);
 		}
-		(this.debouncedEnd)();
+		this.debouncedEnd();
 	}
 
 	var abortDebounce:Bool;
 
-	function uptime():Int {
-		throw new haxe.exceptions.NotImplementedException();
+	function uptime():Float {
+		if (this.startupDate == null) {
+			return 0;
+		}
+		return Date.now().getTime() - this.startupDate.getTime();
 	}
 
 	public function startComponents():Promise<Any> {
 		if (this.processes == null || this.processes.keys().length == 0) {
 			return Promise.resolve(null);
 		}
+
 		// Perform any startup routines necessary for every component.
 		return Promise.inParallel(this.processes.keys().map((id) -> {
 			final process = this.processes[id];
@@ -936,25 +1054,33 @@ class BaseNetwork extends EventEmitter {
 				return Promise.resolve(null);
 			}
 			return process.component.start();
-		})).next((_) -> {
-			return null;
-		});
+		}));
 	}
 
 	public function sendDefaults():Promise<Any> {
+		if(this.defaults.length == 0){
+			return  new Promise((resolve, _)->{resolve(null); return null;});
+		}
 		return Promise.inParallel(this.defaults.map((socket) -> {
-			// Don't send defaults if more than one socket is present on the port.
-			// This case should only happen when a subgraph is created as a component
-			// as its network is instantiated and its inputs are serialized before
-			// a socket is attached from the "parent" graph.
-			if (socket.to.process.component.inPorts.ports[socket.to.port].sockets.length != 1) {
-				return Promise.resolve(null);
-			}
-			socket.connect();
-			socket.send();
-			socket.disconnect();
-			return Promise.resolve(null);
-		})).next((_) -> null);
+			return new Promise((resolve, reject) -> {
+				// Don't send defaults if more than one socket is present on the port.
+				// This case should only happen when a subgraph is created as a component
+				// as its network is instantiated and its inputs are serialized before
+				// a socket is attached from the "parent" graph.
+				if (socket.to.process.component.inPorts.ports[socket.to.port].sockets.length != 1) {
+					resolve(null);
+					return null;
+				}
+				socket.connect();
+				socket.send();
+				socket.disconnect();
+				resolve(null);
+				return null;
+			});
+		})).next((_)->{
+			trace(_);
+			return null;
+		});
 	}
 
 	public function start():Promise<BaseNetwork> {
@@ -968,13 +1094,10 @@ class BaseNetwork extends EventEmitter {
 		} else {
 			this.initials = this.nextInitials.slice(0);
 			this.eventBuffer = [];
-			promise = this.startComponents()
-				.next((_) -> this.sendInitials())
-				.next((_) -> this.sendDefaults())
-				.next((_) -> {
-					this.setStarted(true);
-					return Promise.resolve(this);
-				});
+			promise = Promise.inSequence([this.startComponents(), this.sendInitials(), this.sendDefaults()]).next((_) -> {
+				this.setStarted(true);
+				return this;
+			});
 		}
 
 		return promise;

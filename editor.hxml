@@ -1,7 +1,7 @@
 -cp src/
 
 
--D analyzer-optimize
+# -D analyzer-optimize
 --dce no
 -D no-deprecation-warnings 
 

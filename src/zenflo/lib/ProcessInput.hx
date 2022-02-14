@@ -115,12 +115,17 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 	**/
 	public function has(...params:Dynamic):Bool {
 		var validate:HasValidationCallback = null;
-		var args = params.toArray().filter((p) -> {
-			return Type.typeof(p) !=  Type.ValueType.TFunction;
-		});
+		var args = [];
+		for(p in params) {
+			if(Type.typeof(p) !=  Type.ValueType.TFunction){
+				args.push(p);
+			}
+		}
+	
 		if (args.length == 0) {
 			args = ['in'];
 		}
+
 
 		if (Reflect.isFunction(params[params.length - 1])) {
 			validate = /** @type {HasValidationCallback} */ (params[params.length - 1]);
@@ -367,16 +372,16 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 		Fetches `data` property of IP object(s) for given port(s)
 	**/
 	public function getData(...params:Dynamic):Dynamic {
-		var args = params.toArray();
+		var args = params;
 		if (args.length == 0) {
 			args = ['in'];
 		}
 
-
+	
 		/** @type {Array<any>} */
 		final datas:Array<Dynamic> = [];
 
-		for (index => port in args) {
+		for (port in args) {
 			var packet:Null<IP> = /** @type {IP} */ (this.get(port));
 			if (packet == null) {
 				// we add the null packet to the array so when getting
@@ -392,13 +397,14 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 					break;
 				}
 			}
-			
+
 			datas.push(packet.data);
 		}
 	
 		if (args.length == 1) {
 			return datas.pop();
 		}
+
 		return datas;
 	}
 
