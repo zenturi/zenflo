@@ -31,6 +31,8 @@ import zenflo.graph.Graph;
 import haxe.ds.Either;
 import tink.core.Promise;
 import zenflo.graph.GraphNodeID;
+import haxe.macro.Context;
+import haxe.macro.Type;
 
 using haxe.macro.ExprTools;
 
@@ -52,9 +54,9 @@ using haxe.macro.ExprTools;
 	```
 **/
 macro function asComponent(fun:haxe.macro.Expr, ?options:haxe.macro.Expr) {
-	return switch fun.expr {
-		case EFunction(kind, f): {
-				var args = f.args;
+	var type:Type = Context.typeof(fun);
+	return switch type {
+		case TFun(args, ret): {
 				var paramNames:Array<Dynamic> = [];
 				for (p in args) {
 					final portOptions = {required: true};
@@ -67,14 +69,25 @@ macro function asComponent(fun:haxe.macro.Expr, ?options:haxe.macro.Expr) {
 
 				var resIsPromise = macro false;
 
-				switch f.ret {
-					case TPath(p): {
+				switch ret {
+					case TInst(t, _)  : {
+							final p = t.get();
 							var pName = p.name;
 							var pPath = p.pack.join(".");
 
-							trace(pPath);
+							if (pPath + "." + pName == "tink.core.Promise") {
+								// Result is a tink.core.Promise, resolve and handle
+								resIsPromise = macro true;
+							} else {
+								resIsPromise = macro false;
+							}
+						}
+						case  TAbstract(t, _) : {
+							final p = t.get();
+							var pName = p.name;
+							var pPath = p.pack.join(".");
 
-							if (pPath + "." + pName == "tink.core.tink.core.Promise") {
+							if (pPath + "." + pName == "tink.core.Promise") {
 								// Result is a tink.core.Promise, resolve and handle
 								resIsPromise = macro true;
 							} else {
@@ -93,7 +106,7 @@ macro function asComponent(fun:haxe.macro.Expr, ?options:haxe.macro.Expr) {
 						c.forwardBrackets[p.name] = ['out', 'error'];
 					}
 					if (pNames.length == 0) {
-						c.inPorts.add('in', {datatype: 'bang'});
+						c.inPorts.add('in', {dataType: 'bang'});
 					}
 					c.outPorts.add('out');
 					c.outPorts.add('error');
@@ -106,7 +119,7 @@ macro function asComponent(fun:haxe.macro.Expr, ?options:haxe.macro.Expr) {
 								return null;
 							}
 							var data:Dynamic = input.getData(..._args);
-							if(!Std.isOfType(data, Array)){
+							if (!Std.isOfType(data, Array)) {
 								values.push(data);
 							} else {
 								values.concat(data);
@@ -119,24 +132,24 @@ macro function asComponent(fun:haxe.macro.Expr, ?options:haxe.macro.Expr) {
 							values.push(data);
 						}
 
-
-						
 						var res:Dynamic = Reflect.callMethod({}, ${fun}, values);
-						
-						if (Type.getClassName(Type.getClass(res)) == "tink.core.FutureTrigger") {
-							res.handle(_c -> {
-								switch _c {
-									case tink.core.Outcome.Success(v): {
-											output.sendDone(v);
-										}
-									case tink.core.Outcome.Failure(err): {
-											output.done(err);
-										}
-								}
-							});
-						} else {
-							output.sendDone(res);
+						if (res != null) {
+							if (Std.isOfType(res, tink.core.Future.FutureTrigger) /*Type.getClassName(Type.getClass(res)) == "tink.core.FutureTrigger"*/) {
+								res.handle(_c -> {
+									switch _c {
+										case tink.core.Outcome.Success(v): {
+												output.sendDone(v);
+											}
+										case tink.core.Outcome.Failure(err): {
+												output.done(err);
+											}
+									}
+								});
+								return null;
+							}
 						}
+
+						output.sendDone(res);
 
 						return null;
 					});
@@ -147,6 +160,7 @@ macro function asComponent(fun:haxe.macro.Expr, ?options:haxe.macro.Expr) {
 			}
 		case _: macro {throw "unable to generate Component from Function";};
 	}
+
 }
 
 typedef AsCallbackComponent = Either<Graph, String>;
@@ -275,6 +289,7 @@ function prepareNetwork(component:AsCallbackComponent, options:AsCallbackOptions
 
 								final opts:NetworkOptions = cast Reflect.copy(options);
 								opts.componentLoader = options.loader;
+
 								final network = new Network(graph, opts);
 
 								// Wire the network up and start execution
@@ -327,8 +342,7 @@ function runNetwork(network:Network, inputs:Dynamic):Promise<OutputMap> {
 		final received:Array<DynamicAccess<IP>> = [];
 		final outPorts = Reflect.fields(network.graph.outports);
 		var outSockets:DynamicAccess<InternalSocket> = {};
-
-		Lambda.iter(outPorts, (outport) -> {
+		Lambda.iter(outPorts, outport -> {
 			final portDef = network.graph.outports[outport];
 			final process = network.getNode(portDef.process);
 			if (process == null || process.component == null) {
@@ -337,6 +351,7 @@ function runNetwork(network:Network, inputs:Dynamic):Promise<OutputMap> {
 			outSockets[outport] = InternalSocket.createSocket({}, {
 				debug: false,
 			});
+
 			network.subscribeSocket(outSockets[outport]);
 			process.component.outPorts.ports[portDef.port].attach(outSockets[outport]);
 			outSockets[outport].from = {
@@ -349,6 +364,7 @@ function runNetwork(network:Network, inputs:Dynamic):Promise<OutputMap> {
 				final res:DynamicAccess<IP> = {};
 				res[outport] = ip;
 				received.push(res);
+				// trace(received);
 			});
 		});
 
@@ -365,15 +381,14 @@ function runNetwork(network:Network, inputs:Dynamic):Promise<OutputMap> {
 
 		// Subscribe network finish
 		onEnd = (_) -> {
-			// Clear listeners
 			Lambda.iter(outSockets.keys(), (port) -> {
 				final socket = outSockets[port];
 				socket.from.process.component.outPorts[socket.from.port].detach(socket);
 			});
-
 			outSockets = {};
 			inSockets = {};
 			resolve(received);
+			// Clear listeners
 			network.removeListener('process-error', onError);
 		};
 
@@ -568,6 +583,7 @@ function sendOutputMap(outputs:OutputMap, resultType:String, options:AsCallbackO
 		final map:DynamicAccess<Any> = map;
 		return map["error"];
 	});
+
 	if (errors.length != 0) {
 		return Promise.reject(new Error(normalizeOutput(errors, options).toString()));
 	}
@@ -655,7 +671,7 @@ function asPromise(component:Dynamic, options:AsCallbackOptions):NetworkAsPromis
 
 						final resultType = getType(inputs, network);
 						final inputMap = prepareInputMap(inputs, resultType, network);
-						
+
 						runNetwork(network, inputMap).handle((cb) -> {
 							switch (cb) {
 								case Success(outputMap): {

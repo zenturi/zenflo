@@ -181,6 +181,15 @@ class Component extends EventEmitter {
 		this.__openConnections = 0;
 	}
 
+	// Method for determining if a component is using the modern
+    // NoFlo Process API
+    public function isLegacy() {
+        // Process API
+        if (this.handle != null) { return false; }
+        // Legacy
+        return true;
+    }
+
 	public function isSubgraph():Bool {
 		return false;
 	}
@@ -196,30 +205,39 @@ class Component extends EventEmitter {
 		all active processing contexts have ended.
 	**/
 	public function shutdown():Promise<Any> {
-		return this.tearDown().next((_) -> new Promise((resolve, _) -> {
-			if (this.load > 0) {
-				// Some in-flight processes, wait for them to finish
 
-				/**
-				 * @param {number} load
-				 */
-				var checkLoad:(loads:Array<Any>) -> Void = null;
-
-				checkLoad = (loads:Array<Any>) -> {
-					final load:Int = loads[0];
-					if (load > 0) {
-						return;
+		return new Promise((resolve, _) -> {
+			this.tearDown().handle(cb->{
+				switch cb {
+					case Success(_):{
+						if (this.load > 0) {
+							// Some in-flight processes, wait for them to finish
+			
+							/**
+							 * @param {number} load
+							 */
+							var checkLoad:(loads:Array<Any>) -> Void = null;
+			
+							checkLoad = (loads:Array<Any>) -> {
+								final load:Int = loads[0];
+								if (load > 0) {
+									return;
+								}
+								this.removeListener('deactivate', checkLoad);
+								resolve(null);
+							};
+							this.on('deactivate', checkLoad);
+							return;
+						} else {
+							resolve(null);
+						}
 					}
-					this.removeListener('deactivate', checkLoad);
-					resolve(null);
-				};
-				this.on('deactivate', checkLoad);
-				return null;
-			} else {
-				resolve(null);
-			}
+					case _:
+				}
+			});
+
 			return null;
-		})).next((_) -> {
+		}).next((_) -> {
 			final inPorts = this.inPorts.ports;
 			for (portName in inPorts.keys()) {
 				final inPort:InPort = /** @type {InPort} */ cast(inPorts[portName]);
@@ -229,12 +247,12 @@ class Component extends EventEmitter {
 			this.bracketContext = new BracketContext();
 
 			if (!this.isStarted()) {
-				return Promise.resolve(null);
+				return null;
 			}
 			this.started = false;
 			this.emit('end');
 
-			return Promise.resolve(null);
+			return null;
 		});
 	}
 
@@ -347,7 +365,6 @@ class Component extends EventEmitter {
 	public function prepareForwarding() {
 		for (inPort in this.forwardBrackets.keys()) {
 			final outPorts = this.forwardBrackets[inPort];
-	
 			if (!(this.inPorts.ports.exists(inPort))) {
 				this.forwardBrackets.remove(inPort);
 				continue;

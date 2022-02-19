@@ -60,6 +60,11 @@ class Graph extends Component {
 		});
 	}
 
+
+    override public function isLegacy() {
+        return false;
+    }
+
 	public function setGraph(graph:Dynamic):Promise<Network> {
 		this.ready = false;
 		if (Std.isOfType(graph, String) || Std.isOfType(graph, zenflo.graph.Graph)) {

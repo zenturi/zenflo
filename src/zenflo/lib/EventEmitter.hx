@@ -61,7 +61,7 @@ class EventEmitter {
 		final sub = Subject.create();
 		sub.subscribe(Observer.create(null, null, handler));
 		fs.unshift({subject: sub, once: once, handler: handler});
-		listeners.get(fnName).push(handler);
+		listeners.get(fnName).unshift(handler);
 	}
 
 	public function once(name:String, handler:(data:Array<Any>) -> Void) {

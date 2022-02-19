@@ -100,7 +100,7 @@ class InternalSocket extends EventEmitter {
 	function debugEmitEvent(event:String, data:Any) {
 		try {
 			this.emit(event, data);
-		} catch (error:SocketError) {
+		} catch (error:Dynamic) {
 			if (error.id != null && error.metadata != null && error.error != null) {
 				// Wrapped debuggable error coming from downstream, no need to wrap
 				if (this.listeners.get('$ error').length == 0) {
@@ -135,7 +135,6 @@ class InternalSocket extends EventEmitter {
 			Timer.delay(() -> this.regularEmitEvent(event, data), 0);
 			return;
 		}
-		
 		
 		this.regularEmitEvent(event, data);
 	}
@@ -216,7 +215,7 @@ class InternalSocket extends EventEmitter {
 	}
 
 	public function post(packet:Dynamic, autoDisconnect = true) {
-		var ip = packet;
+		var ip:IP = packet;
 		
 		if ((ip == null) && Reflect.isFunction(this.dataDelegate)) {
 			ip = this.dataDelegate();
@@ -225,7 +224,7 @@ class InternalSocket extends EventEmitter {
 		if (!this.isConnected() && (this.brackets.length == 0)) {
 			this.connect();
 		}
-	
+
 		this.handleSocketEvent('ip', ip, false);
 		if (autoDisconnect && this.isConnected() && (this.brackets.length == 0)) {
 			this.disconnect();
@@ -331,8 +330,6 @@ class InternalSocket extends EventEmitter {
 			return;
 		}
 
-		
-
 		if (!this.isConnected() && autoConnect && (this.brackets.length == 0)) {
 			// Connect before sending
 			this.connect();
@@ -364,7 +361,7 @@ class InternalSocket extends EventEmitter {
 			this.brackets.pop();
 		}
 		
-
+	
 		// Emit the IP Object
 		this.emitEvent('ip', ip);
 
@@ -385,7 +382,7 @@ class InternalSocket extends EventEmitter {
 		if (event == 'disconnect') {
 			this.connected = false;
 		}
-
+	
 		this.emitEvent(event, payload);
 	}
 

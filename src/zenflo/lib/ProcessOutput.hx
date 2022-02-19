@@ -49,6 +49,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 	public function error(err:Dynamic) {
 		final errs = Std.isOfType(err, Array) ? err : [err];
 		final error:OutPort = cast this.ports.ports["error"];
+
 		if (error != null && (error.isAttached() || !error.isRequired())) {
 			if (errs.length > 1) {
 				this.sendIP('error', new IP('openBracket'));
@@ -81,7 +82,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			throw new Error('Node ${this.nodeInstance.nodeId} does not have outport ${port}');
 		}
 
-		final portImpl:OutPort = /** @type {import("./OutPort").default} */ cast(this.nodeInstance.outPorts.ports[port]);
+		final portImpl:OutPort = cast(this.nodeInstance.outPorts.ports[port]);
 		if (portImpl.isAddressable() && (ip.index == null)) {
 			throw new Error('Sending packets to addressable port ${this.nodeInstance.nodeId} ${port} requires specifying index');
 		}
@@ -90,7 +91,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			this.nodeInstance.addToResult(this.result, port, ip);
 			return;
 		}
-		if (portImpl != null && portImpl.options != null && !portImpl.options.scoped) {
+		if (portImpl.options != null && !portImpl.options.scoped) {
 			ip.scope = null;
 		}
 
@@ -103,7 +104,7 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 			this.error(errors);
 			return;
 		}
-
+		
 		/** @type {Array<string>} */
 		final componentPorts:Array<String> = [];
 

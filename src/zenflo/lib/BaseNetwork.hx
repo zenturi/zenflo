@@ -139,14 +139,10 @@ class BaseNetwork extends EventEmitter {
 		this.eventBuffer = [];
 
 		this.baseDir = null;
-		#if !js
+		#if (sys && hxnodejs)
 		this.baseDir = options.baseDir != null ? options.baseDir : graph.properties.baseDir != null ? graph.properties.baseDir : Sys.getCwd();
 		#else
-		#if nodejs
-		this.baseDir = options.baseDir != null ? options.baseDir : graph.properties.baseDir != null ? graph.properties.baseDir : untyped __js__("process.cwd()");
-		#else
 		this.baseDir = options.baseDir != null ? options.baseDir : graph.properties.baseDir != null ? graph.properties.baseDir : '/';
-		#end
 		#end
 
 		// As most NoFlo networks are long-running processes, the
@@ -206,27 +202,29 @@ class BaseNetwork extends EventEmitter {
 	public var flowtraceName:String;
 	public var flowtrace:Dynamic;
 
-	/**
-		The uptime of the network is the current time minus the start-up
-		time, in seconds.
-	**/
-	public function upTime():Float {
-		if (this.startupDate == null) {
-			return 0;
-		}
-		return (Date.now().getTime() - this.startupDate.getTime()) / 1000;
-	}
+	// /**
+	// 	The uptime of the network is the current time minus the start-up
+	// 	time, in seconds.
+	// **/
+	// public function uptime():Float {
+	// 	if (this.startupDate == null) {
+	// 		return 0;
+	// 	}
+	// 	return (Date.now().getSeconds() - this.startupDate.getSeconds());
+	// }
 
 	public function getActiveProcesses():Array<String> {
 		final active = [];
 		if (!this.started) {
 			return active;
 		}
+	
 		for (name in this.processes.keys()) {
 			final process = this.processes[name];
 			if (process == null || process.component == null) {
-				return [];
+				continue;
 			}
+			
 			if (process.component.load > 0) {
 				// Modern component with load
 				active.push(name);
@@ -318,9 +316,10 @@ class BaseNetwork extends EventEmitter {
 
 		if (event == 'start') {
 			// Once network has started we can send the IP-related events
-			for (index => ev in this.eventBuffer) {
+			Lambda.iter(this.eventBuffer, (ev)->{
 				this.emit(ev.type, ev.payload);
-			}
+			});
+
 			this.eventBuffer = [];
 		}
 
@@ -429,60 +428,69 @@ class BaseNetwork extends EventEmitter {
 	}
 
 	public function removeNode(node:GraphNode):Promise<Any> {
-		var promise:Promise<Any> = new Promise(null);
-
-		final process:NetworkProcess = this.getNode(node.id);
-		if (process == null) {
-			promise = Promise.reject(new Error('Node ${node.id} not found'));
-		} else {
-			if (process.component == null) {
-				this.processes.remove(node.id);
-				return Promise.resolve(null);
+		return new Promise((resolve, reject) -> {
+			final process:NetworkProcess = this.getNode(node.id);
+			if (process == null) {
+				reject(new Error('Node ${node.id} not found'));
+				return null;
+			} else {
+				if (process.component == null) {
+					this.processes.remove(node.id);
+					resolve(null);
+					return null;
+				}
+				process.component.shutdown().handle((cb) -> {
+					switch cb {
+						case Success(_): {
+								this.processes.remove(node.id);
+							}
+						case Failure(err): {
+								reject(err);
+							}
+					}
+				});
 			}
-			promise = process.component.shutdown().next((_) -> {
-				this.processes.remove(node.id);
-				return Promise.resolve(null);
-			});
-		}
-		return promise;
+			return null;
+		});
 	}
 
 	public function renameNode(oldId:String, newId:String):Promise<Any> {
-		final process:NetworkProcess = this.getNode(oldId);
-		var promise = new Promise<Any>(null);
-		if (process == null) {
-			promise = Promise.reject(new Error('Process ${oldId} not found'));
-		} else {
-			// Inform the process of its ID
-			process.id = newId;
-			if (process.component != null) {
-				// Inform the ports of the node name
-				final inPorts = process.component.inPorts.ports;
-				final outPorts = process.component.outPorts.ports;
+		return new Promise((resolve, reject) -> {
+			final process:NetworkProcess = this.getNode(oldId);
 
-				for (index => name in inPorts.keys()) {
-					final port = inPorts[name];
-					if (port == null) {
-						return promise;
-					}
-					port.node = newId;
-				}
+			if (process == null) {
+				reject(new Error('Process ${oldId} not found'));
+			} else {
+				// Inform the process of its ID
+				process.id = newId;
+				if (process.component != null) {
+					// Inform the ports of the node name
+					final inPorts = process.component.inPorts.ports;
+					final outPorts = process.component.outPorts.ports;
+					Lambda.iter(inPorts.keys(), (name) -> {
+						final port = inPorts[name];
+						if (port == null) {
+							return;
+						}
+						port.node = newId;
+					});
 
-				for (index => name in outPorts.keys()) {
-					final port = outPorts[name];
-					if (port == null) {
-						return promise;
-					}
-					port.node = newId;
+					Lambda.iter(outPorts.keys(), (name) -> {
+						final port = outPorts[name];
+						if (port == null) {
+							return;
+						}
+						port.node = newId;
+					});
 				}
+				this.processes[newId] = process;
+
+				this.processes.remove(oldId);
+				resolve(null);
 			}
-			this.processes[newId] = process;
 
-			this.processes.remove(oldId);
-			promise = Promise.resolve(null);
-		}
-
-		return promise;
+			return null;
+		});
 	}
 
 	/**
@@ -519,7 +527,6 @@ class BaseNetwork extends EventEmitter {
 	public function addEdge(edge:GraphEdge, options:Dynamic):Promise<InternalSocket> {
 		return new Promise((resolve, reject) -> {
 			this.ensureNode(edge.from.node, 'outbound').handle((cb) -> {
-				trace(cb);
 				switch cb {
 					case Success(from): {
 							final socket = InternalSocket.createSocket(edge.metadata, {
@@ -566,25 +573,28 @@ class BaseNetwork extends EventEmitter {
 	}
 
 	public function removeEdge(edge:GraphEdge):Promise<Any> {
-		for (index => connection in this.connections) {
-			if (connection == null) {
-				return Promise.resolve(null);
-			}
-			if ((edge.to.node != connection.to.process.id) || (edge.to.port != connection.to.port)) {
-				return Promise.resolve(null);
-			}
-			connection.to.process.component.inPorts.ports[connection.to.port].detach(connection);
-			if (edge.from.node != null) {
-				if (connection.from != null
-					&& (edge.from.node == connection.from.process.id)
-					&& (edge.from.port == connection.from.port)) {
-					connection.from.process.component.outPorts.ports[connection.from.port].detach(connection);
+		return new Promise((resolve, reject) -> {
+			Lambda.iter(this.connections, (connection)->{
+				if (connection == null) {
+					return;
 				}
-			}
-			this.connections.splice(this.connections.indexOf(connection), 1);
-		}
+				if ((edge.to.node != connection.to.process.id) || (edge.to.port != connection.to.port)) {
+					return;
+				}
+				connection.to.process.component.inPorts.ports[connection.to.port].detach(connection);
+				if (edge.from.node != null) {
+					if (connection.from != null
+						&& (edge.from.node == connection.from.process.id)
+						&& (edge.from.port == connection.from.port)) {
+						connection.from.process.component.outPorts.ports[connection.from.port].detach(connection);
+					}
+				}
+				this.connections.splice(this.connections.indexOf(connection), 1);
+			});
 
-		return Promise.resolve(null);
+			resolve(null);
+			return null;
+		});
 	}
 
 	public function addInitial(initializer:GraphIIP, options:Dynamic):Promise<InternalSocket> {
@@ -637,39 +647,42 @@ class BaseNetwork extends EventEmitter {
 	}
 
 	public function removeInitial(initializer:GraphIIP):Promise<Any> {
-		for (index => connection in this.connections) {
-			if (connection == null) {
-				return Promise.resolve(null);
-			}
-			if ((initializer.to.node != connection.to.process.id) || (initializer.to.port != connection.to.port)) {
-				return Promise.resolve(null);
-			}
-			connection.to.process.component.inPorts.ports[connection.to.port].detach(connection);
-			this.connections.splice(this.connections.indexOf(connection), 1);
+		return new Promise((resolve, reject) -> {
+			for (index => connection in this.connections) {
+				if (connection == null) {
+					continue;
+				}
+				if ((initializer.to.node != connection.to.process.id) || (initializer.to.port != connection.to.port)) {
+					continue;
+				}
+				connection.to.process.component.inPorts.ports[connection.to.port].detach(connection);
+				this.connections.splice(this.connections.indexOf(connection), 1);
 
-			for (i in 0...this.initials.length) {
-				final init = this.initials[i];
-				if (init == null) {
-					return Promise.resolve(null);
+				for (i in 0...this.initials.length) {
+					final init = this.initials[i];
+					if (init == null) {
+						continue;
+					}
+					if (init.socket != connection) {
+						continue;
+					}
+					this.initials.splice(this.initials.indexOf(init), 1);
 				}
-				if (init.socket != connection) {
-					return Promise.resolve(null);
+				for (i in 0...this.nextInitials.length) {
+					final init = this.nextInitials[i];
+					if (init == null) {
+						continue;
+					}
+					if (init.socket != connection) {
+						continue;
+					}
+					this.nextInitials.splice(this.nextInitials.indexOf(init), 1);
 				}
-				this.initials.splice(this.initials.indexOf(init), 1);
 			}
-			for (i in 0...this.nextInitials.length) {
-				final init = this.nextInitials[i];
-				if (init == null) {
-					return Promise.resolve(null);
-				}
-				if (init.socket != connection) {
-					return Promise.resolve(null);
-				}
-				this.nextInitials.splice(this.nextInitials.indexOf(init), 1);
-			}
-		}
 
-		return Promise.resolve(null);
+			resolve(null);
+			return null;
+		});
 	}
 
 	public function addDefaults(node:GraphNode, options:Dynamic):Promise<Any> {
@@ -677,7 +690,7 @@ class BaseNetwork extends EventEmitter {
 			this.ensureNode(node.id, 'inbound').handle((cb) -> {
 				switch (cb) {
 					case Success(process): {
-							Promise.inParallel(process.component.inPorts.ports.keys().map((key) -> {
+							Promise.inSequence(process.component.inPorts.ports.keys().map((key) -> {
 								// Attach a socket to any defaulted inPorts as long as they aren't already attached.
 								final port:InPort = cast process.component.inPorts.ports[key];
 
@@ -722,27 +735,27 @@ class BaseNetwork extends EventEmitter {
 	}
 
 	public function ensureNode(node:String, direction:String):Promise<NetworkProcess> {
-		final instance = this.getNode(node);
+		return new Promise((resolve, reject) -> {
+			final instance = this.getNode(node);
 
-		if (instance == null) {
-			return Promise.reject(new Error('No process defined for ${direction} node ${node}'));
-		}
-		if (instance.component == null) {
-			return Promise.reject(new Error('No component defined for ${direction} node ${node}'));
-		}
-		final comp = /** @type {import("./Component").Component} */ (instance.component);
-		if (!comp.isReady()) {
-			return new Promise((resolve, reject) -> {
+			if (instance == null) {
+				reject(new Error('No process defined for ${direction} node ${node}'));
+				return null;
+			}
+			if (instance.component == null) {
+				reject(new Error('No component defined for ${direction} node ${node}'));
+				return null;
+			}
+			final comp = /** @type {import("./Component").Component} */ (instance.component);
+			if (!comp.isReady()) {
 				comp.once('ready', (_) -> {
 					resolve(instance);
 				});
 				return null;
-			});
-		}
+			}
 
-		return new Promise((resolve, _) -> {
 			resolve(instance);
-			null;
+			return null;
 		});
 	}
 
@@ -760,7 +773,7 @@ class BaseNetwork extends EventEmitter {
 		this.flowtrace = flowtrace;
 		this.flowtraceName = name != null ? name : this.graph.name;
 		this.flowtrace.addGraph(this.flowtraceName, this.graph, main);
-		for (nodeId in this.processes.keys()) {
+		Lambda.iter(this.processes.keys(), (nodeId) -> {
 			// Register existing subgraphs
 			final node = this.processes[nodeId];
 			final inst = /** @type {import("../components/Graph").Graph} */ (node.component);
@@ -768,7 +781,7 @@ class BaseNetwork extends EventEmitter {
 				return;
 			}
 			inst.network.setFlowtrace(this.flowtrace, node.componentName, false);
-		}
+		});
 	}
 
 	public function subscribeSubgraph(node:NetworkProcess) {
@@ -873,12 +886,12 @@ class BaseNetwork extends EventEmitter {
 		});
 		socket.on('error', (events) -> {
 			final event:Dynamic = events[0];
-			// if (this.listeners('process-error').length == 0) {
-			// 	if (event.id && event.metadata && event.error) {
-			// 		throw event.error;
-			// 	}
-			// 	throw event;
-			// }
+			if (this.listeners['process-error'].length == 0) {
+				if (event.id != null && event.metadata != null && event.error != null) {
+					throw event.error;
+				}
+				throw event;
+			}
 			this.bufferedEmit('process-error', event);
 		});
 		if (source == null || source.component == null) {
@@ -908,23 +921,27 @@ class BaseNetwork extends EventEmitter {
 	}
 
 	public function sendInitials() {
-		if (this.initials.length == 0) {
-			return new Promise((resolve, _) -> {
-				resolve(null);
-				return null;
-			});
-		}
-
-		return Lambda.fold(this.initials, (initial, chain:Promise<Any>) -> {
-			return chain.next((_) -> {
-				initial.socket.post(new IP(DATA, initial.data, {
-					initial: true,
-				}));
-				return null;
-			});
-		}, Promise.resolve([])).next((_) -> {
-			// Clear the list of initials to still be sent
-			this.initials = [];
+		return new Promise((resolve, reject) -> {
+			haxe.Timer.delay(() -> {
+				if (this.initials.length == 0) {
+					resolve(null);
+					return;
+				}
+				Lambda.fold(this.initials, (initial, chain:Promise<Any>) -> {
+					return chain.next((_) -> {
+						initial.socket.post(new IP(DATA, initial.data, {
+							initial: true,
+						}));
+						return null;
+					});
+				}, Promise.resolve([])).next((_) -> {
+					trace("here");
+					// Clear the list of initials to still be sent
+					this.initials = [];
+					resolve(null);
+					return null;
+				});
+			}, 0);
 			return null;
 		});
 	}
@@ -967,11 +984,11 @@ class BaseNetwork extends EventEmitter {
 			return;
 		}
 		this.debug = active;
-		for (index => socket in this.connections) {
+		Lambda.iter(this.connections, (socket) -> {
 			socket.setDebug(active);
-		}
+		});
 
-		for (index => processId in this.processes.keys()) {
+		Lambda.iter(this.processes.keys(), (processId) -> {
 			final process = this.processes[processId];
 			if (process.component == null) {
 				return;
@@ -982,7 +999,7 @@ class BaseNetwork extends EventEmitter {
 				final inst = /** @type {import("../components/Graph").Graph} */ (instance);
 				inst.network.setDebug(active);
 			}
-		}
+		});
 	}
 
 	public function getDebug() {
@@ -994,10 +1011,10 @@ class BaseNetwork extends EventEmitter {
 			return;
 		}
 		this.asyncDelivery = active;
-		for (index => socket in this.connections) {
+		Lambda.iter(this.connections, (socket) -> {
 			socket.async = this.asyncDelivery;
-		}
-		for (key => processId in this.processes.keys()) {
+		});
+		Lambda.iter(this.processes.keys(), (processId) -> {
 			final process = this.processes[processId];
 			if (process.component == null) {
 				return;
@@ -1008,7 +1025,7 @@ class BaseNetwork extends EventEmitter {
 				final inst = /** @type {import("../components/Graph").Graph} */ (instance);
 				inst.network.setAsyncDelivery(active);
 			}
-		}
+		});
 	}
 
 	var debouncedEnd:() -> Void;
@@ -1021,7 +1038,7 @@ class BaseNetwork extends EventEmitter {
 		// this.abortDebounce;
 		if (this.debouncedEnd == null) {
 			this.debouncedEnd = Utils.debounce(() -> {
-				if (this.abortDebounce) {
+				if (this.abortDebounce != null && this.abortDebounce) {
 					return;
 				}
 				if (this.isRunning()) {
@@ -1035,11 +1052,11 @@ class BaseNetwork extends EventEmitter {
 
 	var abortDebounce:Bool;
 
-	function uptime():Float {
+	function uptime():Int {
 		if (this.startupDate == null) {
 			return 0;
 		}
-		return Date.now().getTime() - this.startupDate.getTime();
+		return (Date.now().getSeconds() - this.startupDate.getSeconds());
 	}
 
 	public function startComponents():Promise<Any> {
@@ -1058,8 +1075,11 @@ class BaseNetwork extends EventEmitter {
 	}
 
 	public function sendDefaults():Promise<Any> {
-		if(this.defaults.length == 0){
-			return  new Promise((resolve, _)->{resolve(null); return null;});
+		if (this.defaults.length == 0) {
+			return new Promise((resolve, _) -> {
+				resolve(null);
+				return null;
+			});
 		}
 		return Promise.inParallel(this.defaults.map((socket) -> {
 			return new Promise((resolve, reject) -> {
@@ -1077,8 +1097,7 @@ class BaseNetwork extends EventEmitter {
 				resolve(null);
 				return null;
 			});
-		})).next((_)->{
-			trace(_);
+		})).next((_) -> {
 			return null;
 		});
 	}
@@ -1087,7 +1106,6 @@ class BaseNetwork extends EventEmitter {
 		if (this.debouncedEnd == null) {
 			this.abortDebounce = true;
 		}
-
 		var promise = null;
 		if (this.started) {
 			promise = this.stop().next((_) -> this.start());
@@ -1107,19 +1125,18 @@ class BaseNetwork extends EventEmitter {
 		if (this.debouncedEnd == null) {
 			this.abortDebounce = true;
 		}
-
 		var promise:Promise<BaseNetwork> = null;
 		if (!this.started) {
 			this.stopped = true;
 			promise = Promise.resolve(this);
 		} else {
 			// Disconnect all connections
-			for (index => connection in this.connections) {
+			Lambda.iter(this.connections, (connection) -> {
 				if (!connection.isConnected()) {
-					return promise;
+					return;
 				}
 				connection.disconnect();
-			}
+			});
 
 			if (this.processes == null || this.processes.keys().length == 0) {
 				// No processes to stop
@@ -1128,7 +1145,7 @@ class BaseNetwork extends EventEmitter {
 				promise = Promise.resolve(this);
 			} else {
 				// Emit stop event when all processes are stopped
-				promise = Promise.inParallel(this.processes.keys().map((id) -> {
+				promise = Promise.inSequence(this.processes.keys().map((id) -> {
 					if (this.processes[id].component != null) {
 						return Promise.resolve(null);
 					}
@@ -1138,7 +1155,7 @@ class BaseNetwork extends EventEmitter {
 				})).next((_) -> {
 					this.setStarted(false);
 					this.stopped = true;
-					return Promise.resolve(this);
+					return this;
 				});
 			}
 		}
