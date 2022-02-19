@@ -198,6 +198,17 @@ class AsComponent extends buddy.BuddySuite {
 								}
 							});
 						});
+						it('should contain correct ports', (done) -> {
+							loader.load('ascomponent/sync-two', (err, instance) -> {
+							  if (err != null) {
+								fail(err);
+								return;
+							  }
+							  Equal.equals(instance.inPorts.ports, ['greeting', 'name']).should.be(true);
+							  Equal.equals(instance.outPorts.ports, ['out', 'error']).should.be(true);
+							  done();
+							});
+						  });
 					});
 				});
 			});
