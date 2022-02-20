@@ -72,7 +72,6 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		Sends a single IP object to a port
 	**/
 	public function sendIP(port:String, packet:Dynamic) {
-		// trace("isIP", IP.isIP(packet));
 		final ip = IP.isIP(packet) ? packet : new IP(DATA, packet);
 		if ((this.scope != null) && (ip.scope == null)) {
 			ip.scope = this.scope;
@@ -94,7 +93,6 @@ class ProcessOutput #if !cpp extends sneaker.tag.Tagged #end {
 		if (portImpl.options != null && !portImpl.options.scoped) {
 			ip.scope = null;
 		}
-
 		portImpl.sendIP(Either.Left(ip));
 	}
 

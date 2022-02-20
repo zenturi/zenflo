@@ -80,6 +80,7 @@ class ManifestLoader {
 
 	function register(loader:ComponentLoader, callback:(err:tink.core.Error, modules:Array<Dynamic>) -> Void) {
 		final manifestOptions = prepareManifestOptions(loader);
+		
 		if (loader.options != null ? loader.options.cache != null : false) {
 			this.listComponents(loader, manifestOptions, (err, modules) -> {
 				if (err != null) {

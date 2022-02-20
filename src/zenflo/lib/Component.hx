@@ -252,7 +252,7 @@ class Component extends EventEmitter {
 			this.started = false;
 			this.emit('end');
 
-			return null;
+			return this;
 		});
 	}
 
@@ -297,7 +297,7 @@ class Component extends EventEmitter {
 							resolve(null);
 						}
 						case Failure(err):{
-							resolve(err);
+							reject(err);
 						}
 					}
 				});
@@ -343,7 +343,7 @@ class Component extends EventEmitter {
 		setup work.
 	**/
 	public function setUp():Promise<Dynamic> {
-		return Promise.resolve(null);
+		return Promise.resolve(this);
 	}
 
 	/**
@@ -356,7 +356,7 @@ class Component extends EventEmitter {
 		cleanup work, like clearing any accumulated state.
 	**/
 	public function tearDown():Promise<Dynamic> {
-		return Promise.resolve(null);
+		return Promise.resolve(this);
 	}
 
 	/**

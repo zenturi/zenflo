@@ -1,0 +1,12 @@
+editor.hxml
+
+
+-m AsComponentTest
+-D buddy-colors
+--js bin/test-macro.js
+
+-L hxnodejs
+
+-D hxnodejs
+
+--cmd node bin/test-macro.js

@@ -224,7 +224,6 @@ class InternalSocket extends EventEmitter {
 		if (!this.isConnected() && (this.brackets.length == 0)) {
 			this.connect();
 		}
-
 		this.handleSocketEvent('ip', ip, false);
 		if (autoDisconnect && this.isConnected() && (this.brackets.length == 0)) {
 			this.disconnect();
@@ -329,7 +328,7 @@ class InternalSocket extends EventEmitter {
 		if (ip == null) {
 			return;
 		}
-
+		
 		if (!this.isConnected() && autoConnect && (this.brackets.length == 0)) {
 			// Connect before sending
 			this.connect();
@@ -360,7 +359,6 @@ class InternalSocket extends EventEmitter {
 			}
 			this.brackets.pop();
 		}
-		
 	
 		// Emit the IP Object
 		this.emitEvent('ip', ip);
@@ -382,7 +380,6 @@ class InternalSocket extends EventEmitter {
 		if (event == 'disconnect') {
 			this.connected = false;
 		}
-	
 		this.emitEvent(event, payload);
 	}
 

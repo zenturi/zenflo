@@ -7,6 +7,7 @@ import zenflo.lib.Macros.asComponent;
 import zenflo.lib.Macros.asCallback;
 import equals.Equal;
 import tink.core.Error;
+import zenflo.lib.Utils.deflate;
 
 using buddy.Should;
 
@@ -35,7 +36,7 @@ class AsComponent extends buddy.BuddySuite {
 				describe('with returned value', {
 					var func = (?hello) -> 'Hello ${hello}';
 					it('should be possible to componentize', (done) -> {
-						final component = (metadata) -> asComponent((?hello:String) -> func(hello), metadata);
+						final component = (metadata) -> asComponent(deflate(func), metadata);
 
 						loader.registerComponent('ascomponent', 'sync-one', component, (?e) -> done());
 					});
@@ -125,7 +126,7 @@ class AsComponent extends buddy.BuddySuite {
 					describe('with returned NULL', () -> {
 						final func = () -> null;
 						it('should be possible to componentize', (done) -> {
-							final component = (_) -> asComponent(() -> func(), {});
+							final component = (_) -> asComponent(deflate(func), {});
 							loader.registerComponent('ascomponent', 'sync-null', component, (e) -> {
 								if (e != null) {
 									fail(e);
@@ -148,9 +149,10 @@ class AsComponent extends buddy.BuddySuite {
 					});
 					describe('with a thrown exception', () -> {
 						it('should be possible to componentize', (done) -> {
-							final component = (meta) -> asComponent(function(hello) {
+							function fun(hello) {
 								throw new Error('Hello ${hello}');
-							}, meta);
+							}
+							final component = (meta) -> asComponent(deflate(fun), meta);
 							loader.registerComponent('ascomponent', 'sync-throw', component, (e) -> {
 								if (e != null) {
 									fail(e);
@@ -161,7 +163,7 @@ class AsComponent extends buddy.BuddySuite {
 						});
 						it('should send to ERROR port', (done) -> {
 							final wrapped = asCallback('ascomponent.sync-throw', {loader: loader});
-							wrapped('Error', (err, _) -> {
+							wrapped('Error', (err, res) -> {
 								if (err != null) {
 									err.should.not.be(null);
 									err.should.beType(Error);
@@ -174,10 +176,11 @@ class AsComponent extends buddy.BuddySuite {
 				});
 				describe('with a synchronous function taking a multiple parameters', {
 					describe('with returned value', {
+						function func(greeting:String, name:String) {
+							return '${greeting} ${name}';
+						}
 						it('should be possible to componentize', (done) -> {
-							function func(greeting:String, name:String)
-								return '${greeting} ${name}';
-							final component = (meta) -> asComponent(func, meta);
+							final component = (meta) -> asComponent(deflate(func), meta);
 							loader.registerComponent('ascomponent', 'sync-two', component, (e) -> {
 								if (e != null) {
 									fail(e);
@@ -199,19 +202,210 @@ class AsComponent extends buddy.BuddySuite {
 							});
 						});
 						it('should contain correct ports', (done) -> {
-							loader.load('ascomponent/sync-two', (err, instance) -> {
-							  if (err != null) {
-								fail(err);
-								return;
-							  }
-							  Equal.equals(instance.inPorts.ports, ['greeting', 'name']).should.be(true);
-							  Equal.equals(instance.outPorts.ports, ['out', 'error']).should.be(true);
-							  done();
+							loader.load('ascomponent.sync-two').handle(cb -> {
+								switch cb {
+									case Success(instance): {
+											Equal.equals(instance.inPorts.ports.keys(), ['greeting', 'name']).should.be(true);
+											Equal.equals(instance.outPorts.ports.keys(), ['out', 'error']).should.be(true);
+											done();
+										}
+									case Failure(err): {
+											if (err != null) {
+												fail(err);
+												return;
+											}
+										}
+								}
 							});
-						  });
+						});
+						it('should send to OUT port', (done) -> {
+							final wrapped = asCallback('ascomponent.sync-two', {loader: loader});
+							wrapped({
+								greeting: 'Hei',
+								name: 'Maailma',
+							}, (err, res) -> {
+								if (err != null) {
+									fail(err);
+									return;
+								}
+								Equal.equals(res, {out: 'Hei Maailma'}).should.be(true);
+								done();
+							});
+						});
+					});
+					describe('with a default value', () -> {
+						// before(function () {
+						//   if (isBrowser) { return this.skip(); }
+						// }); // Browser runs with ES5 which didn't have defaults
+						it('should be possible to componentize', (done) -> {
+							final component = (meta) -> asComponent(deflate((name, greeting = 'Hello') -> '${greeting} ${name}'), meta);
+							loader.registerComponent('ascomponent', 'sync-default', component, (e) -> done());
+						});
+						it('should be loadable', (done) -> {
+							loader.load('ascomponent.sync-default').handle(cb -> done());
+						});
+						it('should contain correct ports', (done) -> {
+							loader.load('ascomponent.sync-default').handle(cb -> {
+								switch cb {
+									case Success(instance): {
+											Equal.equals(instance.inPorts.ports.keys(), ['name', 'greeting']);
+											Equal.equals(instance.outPorts.ports.keys(), ['out', 'error']);
+
+											final name:InPort = cast instance.inPorts["name"];
+											final greeting:InPort = cast instance.inPorts["greeting"];
+											name.isRequired().should.be(true);
+											name.hasDefault().should.be(false);
+											greeting.isRequired().should.be(false);
+											greeting.hasDefault().should.be(true);
+
+											done();
+										}
+									case Failure(err): {
+											fail(err);
+										}
+								}
+							});
+						});
+						it('should send to OUT port', (done) -> {
+							final wrapped = asCallback('ascomponent.sync-default', {loader: loader});
+							wrapped({name: 'Maailma'}, (err, res) -> {
+								if (err != null) {
+									fail(err);
+									return;
+								}
+								Equal.equals(res, {out: 'Hello Maailma'}).should.be(true);
+								done();
+							});
+						});
 					});
 				});
 			});
+			describe('with a function returning a Promise', () -> {
+				describe('with a resolved promise', () -> {
+					//   before(function () {
+					// 	if (isBrowser && (typeof window.Promise === 'undefined')) { return this.skip(); }
+					//   });
+					function func(hello) {
+						return new tink.core.Promise((resolve, _) -> {
+							haxe.Timer.delay(() -> resolve('Hello ${hello}'), 5);
+							return null;
+						});
+					}
+					it('should be possible to componentize', (done) -> {
+						final component = (meta) -> asComponent(deflate(func), meta);
+						loader.registerComponent('ascomponent', 'promise-one', component, (e) -> done());
+					});
+					it('should send to OUT port', (done) -> {
+						final wrapped = asCallback('ascomponent.promise-one', {loader: loader});
+						wrapped('World', (err, res) -> {
+							if (err != null) {
+								fail(err);
+								return;
+							}
+
+							new buddy.Should(res).be('Hello World');
+							done();
+						});
+					});
+				});
+				describe('with a rejected promise', () -> {
+					function func(hello) {
+						return new tink.core.Promise((_, reject) -> {
+							haxe.Timer.delay(() -> reject(new Error('Hello ${hello}')), 5);
+							return null;
+						});
+					}
+					it('should be possible to componentize', (done) -> {
+						final component = (meta) -> asComponent(deflate(func), meta);
+						loader.registerComponent('ascomponent', 'sync-throw', component, (e) -> done());
+					});
+					it('should send to ERROR port', (done) -> {
+						final wrapped = asCallback('ascomponent.sync-throw', {loader: loader});
+						wrapped('Error', (err, _) -> {
+							if (err != null) {
+								err.should.not.be(null);
+								err.should.beType(Error);
+								err.toString().should.contain('Hello Error');
+								done();
+							}
+						});
+					});
+				});
+			});
+			describe('with a synchronous function taking zero parameters', () -> {
+				describe('with returned value', () -> {
+					function func() {
+						return 'Hello there';
+					}
+					it('should be possible to componentize', (done) -> {
+						final component = () -> asComponent(deflate(func), {});
+						loader.registerComponent('ascomponent', 'sync-zero', component, (e) -> done());
+					});
+					it('should contain correct ports', (done) -> {
+						loader.load('ascomponent.sync-zero').handle(cb -> {
+							switch cb {
+								case Success(instance): {
+										Equal.equals(instance.inPorts.ports.keys(), ['in']).should.be(true);
+										Equal.equals(instance.outPorts.ports.keys(), ['out', 'error']).should.be(true);
+										done();
+									}
+								case Failure(err): {
+										fail(err);
+									}
+							}
+						});
+					});
+					it('should send to OUT port', (done) -> {
+						final wrapped = asCallback('ascomponent.sync-zero', {loader: loader});
+						wrapped('bang', (err, res) -> {
+							if (err != null) {
+								fail(err);
+								return;
+							}
+							new buddy.Should(res).be('Hello there');
+							done();
+						});
+					});
+				});
+				describe('with a built-in function', () -> {
+					it('should be possible to componentize', (done) -> {
+						final component = () -> asComponent(deflate(Math.random), {});
+						loader.registerComponent('ascomponent', 'sync-zero', component, (e) -> done());
+					});
+					it('should contain correct ports', (done) -> {
+						loader.load('ascomponent.sync-zero').handle(cb -> {
+							switch cb {
+								case Success(instance): {
+										Equal.equals(instance.inPorts.ports.keys(), ['in']).should.be(true);
+										Equal.equals(instance.outPorts.ports.keys(), ['out', 'error']).should.be(true);
+										done();
+									}
+								case Failure(err): {
+										fail(err);
+										return;
+									}
+							}
+						});
+					});
+					it('should send to OUT port', (done) -> {
+						final wrapped = asCallback('ascomponent.sync-zero', {loader: loader});
+						wrapped('bang', (err, res) -> {
+							if (err != null) {
+								fail(err);
+								return;
+							}
+							new buddy.Should(res).beType(Float);
+							done();
+						});
+					});
+				});
+			});
+			// Haxe has no standard callback methodology like NodeJS
+			// describe('with an asynchronous function taking a single parameter and callback', () -> {
+			// 	describe('with successful callback', () -> {
+
+			// 	});
+			// });
 		});
 	}
 }

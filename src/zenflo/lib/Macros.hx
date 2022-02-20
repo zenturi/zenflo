@@ -31,10 +31,8 @@ import zenflo.graph.Graph;
 import haxe.ds.Either;
 import tink.core.Promise;
 import zenflo.graph.GraphNodeID;
-import haxe.macro.Context;
-import haxe.macro.Type;
-
-using haxe.macro.ExprTools;
+import haxe.Constraints.Function;
+import zenflo.lib.Component.ComponentOptions;
 
 /**
 	## asComponent generator API
@@ -47,120 +45,79 @@ using haxe.macro.ExprTools;
 
 	```
 		using zenflo.lib.Macros.*;
+		using zenflo.lib.Utils;
 
-		final random = asComponent(Math.random, {
+		final random = asComponent(Math.random.deflate(), {
 			description: 'Generate a random number'
 		});
 	```
 **/
-macro function asComponent(fun:haxe.macro.Expr, ?options:haxe.macro.Expr) {
-	var type:Type = Context.typeof(fun);
-	return switch type {
-		case TFun(args, ret): {
-				var paramNames:Array<Dynamic> = [];
-				for (p in args) {
-					final portOptions = {required: true};
-					portOptions.required = !p.opt;
+function asComponent(paramsAndRet:Array<Dynamic>, ?options:ComponentOptions) {
+	final func = paramsAndRet[0];
+	final pNames:Array<Dynamic> = paramsAndRet[1];
+	final isPromise = paramsAndRet[2];
 
-					final pName = p.name;
-					final v = {name: pName, options: portOptions};
-					paramNames.push(v);
-				}
+	var c = new zenflo.lib.Component(options);
 
-				var resIsPromise = macro false;
-
-				switch ret {
-					case TInst(t, _)  : {
-							final p = t.get();
-							var pName = p.name;
-							var pPath = p.pack.join(".");
-
-							if (pPath + "." + pName == "tink.core.Promise") {
-								// Result is a tink.core.Promise, resolve and handle
-								resIsPromise = macro true;
-							} else {
-								resIsPromise = macro false;
-							}
-						}
-						case  TAbstract(t, _) : {
-							final p = t.get();
-							var pName = p.name;
-							var pPath = p.pack.join(".");
-
-							if (pPath + "." + pName == "tink.core.Promise") {
-								// Result is a tink.core.Promise, resolve and handle
-								resIsPromise = macro true;
-							} else {
-								resIsPromise = macro false;
-							}
-						}
-					case _: resIsPromise = macro false;
-				};
-
-				var body = macro {
-					final pNames = $v{paramNames}; // [for(x in ) {name:${x.name}, options: ${x.options}}];
-					var c = new zenflo.lib.Component($options);
-
-					for (p in pNames) {
-						c.inPorts.add(p.name, p.options);
-						c.forwardBrackets[p.name] = ['out', 'error'];
-					}
-					if (pNames.length == 0) {
-						c.inPorts.add('in', {dataType: 'bang'});
-					}
-					c.outPorts.add('out');
-					c.outPorts.add('error');
-
-					c.process((input:zenflo.lib.ProcessInput, output:zenflo.lib.ProcessOutput, _) -> {
-						var values:Array<String> = [];
-						if (pNames.length != 0) {
-							var _args = [for (p in pNames) p.name];
-							if (!input.hasData(..._args)) {
-								return null;
-							}
-							var data:Dynamic = input.getData(..._args);
-							if (!Std.isOfType(data, Array)) {
-								values.push(data);
-							} else {
-								values.concat(data);
-							}
-						} else {
-							if (!input.hasData('in')) {
-								return null;
-							}
-							var data = input.getData('in');
-							values.push(data);
-						}
-
-						var res:Dynamic = Reflect.callMethod({}, ${fun}, values);
-						if (res != null) {
-							if (Std.isOfType(res, tink.core.Future.FutureTrigger) /*Type.getClassName(Type.getClass(res)) == "tink.core.FutureTrigger"*/) {
-								res.handle(_c -> {
-									switch _c {
-										case tink.core.Outcome.Success(v): {
-												output.sendDone(v);
-											}
-										case tink.core.Outcome.Failure(err): {
-												output.done(err);
-											}
-									}
-								});
-								return null;
-							}
-						}
-
-						output.sendDone(res);
-
-						return null;
-					});
-					return c;
-				};
-				// trace(body.toString());
-				return body;
-			}
-		case _: macro {throw "unable to generate Component from Function";};
+	for (p in pNames) {
+		c.inPorts.add(p.name, p.options);
+		c.forwardBrackets[p.name] = ['out', 'error'];
 	}
+	if (pNames.length == 0) {
+		c.inPorts.add('in', {dataType: 'bang'});
+	}
+	c.outPorts.add('out');
+	c.outPorts.add('error');
 
+	c.process((input:zenflo.lib.ProcessInput, output:zenflo.lib.ProcessOutput, _) -> {
+		var values:Array<String> = [];
+
+		if (pNames.length != 0) {
+			var _args = [for (p in pNames) p.name];
+		
+			if (!input.hasData(..._args)) {
+				return null;
+			}
+			var data:Dynamic = input.getData(..._args);
+			
+			if (!Std.isOfType(data, Array)) {
+				values.push(data);
+			} else {
+				values = values.concat(data);
+			}
+			
+		} else {
+			if (!input.hasData('in')) {
+				return null;
+			}
+			var data = input.getData('in');
+			values.push(data);
+		}
+
+		
+
+		var res:Dynamic = Reflect.callMethod({}, func, values);
+		if (res != null) {
+			if (isPromise) {
+				res.handle(_c -> {
+					switch _c {
+						case tink.core.Outcome.Success(v): {
+								output.sendDone(v);
+							}
+						case tink.core.Outcome.Failure(err): {
+								output.done(err);
+							}
+					}
+				});
+				return null;
+			}
+		}
+
+		output.sendDone(res);
+
+		return null;
+	});
+	return c;
 }
 
 typedef AsCallbackComponent = Either<Graph, String>;
@@ -249,7 +206,7 @@ function normalizeOptions(options:AsCallbackOptions, component:AsCallbackCompone
  * @param options 
  * @return Promise<Network>
  */
-function prepareNetwork(component:AsCallbackComponent, options:AsCallbackOptions):Promise<Network> {
+function prepareNetwork(component:Dynamic, options:AsCallbackOptions):Promise<Network> {
 	// If we were given a graph instance, then just create a network
 	if (Std.isOfType(component, Graph)) {
 		// This is a graph object
@@ -342,6 +299,8 @@ function runNetwork(network:Network, inputs:Dynamic):Promise<OutputMap> {
 		final received:Array<DynamicAccess<IP>> = [];
 		final outPorts = Reflect.fields(network.graph.outports);
 		var outSockets:DynamicAccess<InternalSocket> = {};
+
+		
 		Lambda.iter(outPorts, outport -> {
 			final portDef = network.graph.outports[outport];
 			final process = network.getNode(portDef.process);
@@ -364,7 +323,6 @@ function runNetwork(network:Network, inputs:Dynamic):Promise<OutputMap> {
 				final res:DynamicAccess<IP> = {};
 				res[outport] = ip;
 				received.push(res);
-				// trace(received);
 			});
 		});
 
@@ -408,6 +366,8 @@ function runNetwork(network:Network, inputs:Dynamic):Promise<OutputMap> {
 										for (j in 0...keys.length) {
 											final port = keys[j];
 											final value = inputMap[port];
+
+											
 
 											if (!inSockets.exists(port)) {
 												final portDef = network.graph.inports[port];
@@ -668,7 +628,7 @@ function asPromise(component:Dynamic, options:AsCallbackOptions):NetworkAsPromis
 						if (options.networkCallback != null) {
 							options.networkCallback(network);
 						}
-
+			
 						final resultType = getType(inputs, network);
 						final inputMap = prepareInputMap(inputs, resultType, network);
 
