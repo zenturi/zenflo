@@ -13,8 +13,11 @@ import haxe.DynamicAccess;
 import zenflo.graph.GraphNodeMetadata;
 import zenflo.lib.EventEmitter;
 import tink.core.Error;
+// import fbp.FBP;
 
 using equals.Equal;
+
+
 
 function createGraph(name:String, options:GraphOptions):Graph {
 	return new Graph(name, options);
@@ -1390,6 +1393,10 @@ class Graph extends EventEmitter {
 			return null;
 		});
 	}
+
+	// public function loadFBP(fbpData:String, ?metadata:Dynamic):Promise<Graph> {
+	// 	return Promise.resolve(FBP.load(fbpData, metadata));
+	// }
 
 	public static function loadFile(graphFilePath:String):Promise<Graph> {
 		#if (sys || hxnodejs)

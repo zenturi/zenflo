@@ -74,18 +74,17 @@ function asComponent(paramsAndRet:Array<Dynamic>, ?options:ComponentOptions) {
 
 		if (pNames.length != 0) {
 			var _args = [for (p in pNames) p.name];
-		
+
 			if (!input.hasData(..._args)) {
 				return null;
 			}
 			var data:Dynamic = input.getData(..._args);
-			
+
 			if (!Std.isOfType(data, Array)) {
 				values.push(data);
 			} else {
 				values = values.concat(data);
 			}
-			
 		} else {
 			if (!input.hasData('in')) {
 				return null;
@@ -93,8 +92,6 @@ function asComponent(paramsAndRet:Array<Dynamic>, ?options:ComponentOptions) {
 			var data = input.getData('in');
 			values.push(data);
 		}
-
-		
 
 		var res:Dynamic = Reflect.callMethod({}, func, values);
 		if (res != null) {
@@ -112,7 +109,6 @@ function asComponent(paramsAndRet:Array<Dynamic>, ?options:ComponentOptions) {
 				return null;
 			}
 		}
-
 		output.sendDone(res);
 
 		return null;
@@ -143,7 +139,7 @@ typedef OutputMap = Array<Any>;
 typedef InputMap = Either<DynamicAccess<Array<IP>>, Array<DynamicAccess<IP>>>;
 typedef ResultCallback = (err:Null<Error>, output:Dynamic) -> Void;
 typedef NetworkAsCallback = (inputs:Dynamic, callback:ResultCallback) -> Void;
-typedef NetworkAsPromise = (inputs:Dynamic) -> tink.core.Promise<OutputMap>;
+typedef NetworkAsPromise = (inputs:Dynamic) -> tink.core.Promise<Any>;
 typedef NetworkCallback = (network:Network) -> Void;
 
 /**
@@ -224,7 +220,7 @@ function prepareNetwork(component:Dynamic, options:AsCallbackOptions):Promise<Ne
 
 			// Start by loading the component
 			return new Promise<Network>((resolve, reject) -> {
-				options.loader.load(cast component, {}).handle((cb) -> {
+				options.loader.load(component).handle((cb) -> {
 					switch cb {
 						case Success(instance): {
 								// Prepare a graph wrapping the component
@@ -300,7 +296,6 @@ function runNetwork(network:Network, inputs:Dynamic):Promise<OutputMap> {
 		final outPorts = Reflect.fields(network.graph.outports);
 		var outSockets:DynamicAccess<InternalSocket> = {};
 
-		
 		Lambda.iter(outPorts, outport -> {
 			final portDef = network.graph.outports[outport];
 			final process = network.getNode(portDef.process);
@@ -362,12 +357,9 @@ function runNetwork(network:Network, inputs:Dynamic):Promise<OutputMap> {
 									for (i in 0...inputs.length) {
 										final inputMap:DynamicAccess<Array<IP>> = inputs[i];
 										final keys = inputMap.keys();
-
-										for (j in 0...keys.length) {
-											final port = keys[j];
-											final value = inputMap[port];
-
-											
+										
+										for (port in keys) {
+											final value:Any = inputMap[port];
 
 											if (!inSockets.exists(port)) {
 												final portDef = network.graph.inports[port];
@@ -498,10 +490,11 @@ function prepareInputMap(inputs:Dynamic, inputType:String, network:Network):Inpu
  * @param options 
  * @return Array<Any>
  */
-function normalizeOutput(values:Array<Any>, options:AsCallbackOptions):Array<Any> {
+function normalizeOutput(values:Array<Any>, options:AsCallbackOptions):Any {
 	if (options.raw) {
 		return values;
 	}
+
 	final result:Array<Any> = [];
 	var previous:Null<Array<Any>> = null;
 	var current = result;
@@ -545,7 +538,8 @@ function sendOutputMap(outputs:OutputMap, resultType:String, options:AsCallbackO
 	});
 
 	if (errors.length != 0) {
-		return Promise.reject(new Error(normalizeOutput(errors, options).toString()));
+		final m = normalizeOutput(errors, options);
+		return Promise.reject(new Error(Std.string(m)));
 	}
 
 	if (resultType == 'sequence') {
@@ -598,6 +592,7 @@ function sendOutputMap(outputs:OutputMap, resultType:String, options:AsCallbackO
 		result[port] = normalizeOutput(packets, options);
 	}
 
+	
 	return Promise.resolve(result);
 }
 
@@ -621,14 +616,14 @@ function asPromise(component:Dynamic, options:AsCallbackOptions):NetworkAsPromis
 		options = normalizeOptions(options, AsCallbackComponent.Left(component));
 	}
 
-	return (inputs) -> new Promise<OutputMap>((resolve, reject) -> {
+	return (inputs) -> new Promise<Any>((resolve, reject) -> {
 		prepareNetwork(component, options).handle((cb) -> {
 			switch cb {
 				case Success(network): {
 						if (options.networkCallback != null) {
 							options.networkCallback(network);
 						}
-			
+
 						final resultType = getType(inputs, network);
 						final inputMap = prepareInputMap(inputs, resultType, network);
 

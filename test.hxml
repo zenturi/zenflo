@@ -4,7 +4,7 @@ editor.hxml
 # -D debug
 # --each
 -D buddy-colors
-
+# -D reporter=buddy.reporting.TraceReporter
 # --next
 -m zenflo.spec.Test
 

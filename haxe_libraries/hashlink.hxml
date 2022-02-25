@@ -1,3 +1,4 @@
-# @install: lix --silent download "gh://github.com/HaxeFoundation/hashlink#5f0633b053fa4d62495a127a211088686ae5479c" into hashlink/0.0.0/github/5f0633b053fa4d62495a127a211088686ae5479c
--cp ${HAXE_LIBCACHE}/hashlink/0.0.0/github/5f0633b053fa4d62495a127a211088686ae5479c/src
--D hashlink=0.0.0
+# @install: lix --silent download "haxelib:/hashlink#0.1.0" into hashlink/0.1.0/haxelib
+# @run: haxelib run-dir hashlink "${HAXE_LIBCACHE}/hashlink/0.1.0/haxelib"
+-cp ${HAXE_LIBCACHE}/hashlink/0.1.0/haxelib/
+-D hashlink=0.1.0

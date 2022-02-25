@@ -115,9 +115,9 @@ class ProcessInput #if !cpp extends sneaker.tag.Tagged #end {
 	**/
 	public function has(...params:Dynamic):Bool {
 		var validate:HasValidationCallback = null;
-		var args = [];
+		var args:Array<Any> = [];
 		for(p in params) {
-			if(Type.typeof(p) !=  Type.ValueType.TFunction){
+			if(!Reflect.isFunction(p)){
 				args.push(p);
 			}
 		}

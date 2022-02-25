@@ -40,44 +40,44 @@ abstract BracketContext(Dynamic) from Dynamic to Dynamic {
 
 typedef ProcessingFunction = (input:ProcessInput, output:ProcessOutput, context:ProcessContext) -> Any /*Promise<Dynamic>*/;
 
-@:structInit
-class ComponentOptions {
+
+typedef ComponentOptions = {
 	/**
 		Inports for the component
 	**/
-	public var inPorts:InPorts = null;
+	?inPorts:InPorts,
 
 	/**
 		Outports for the component
 	**/
-	public var outPorts:OutPorts = null;
+	?outPorts:OutPorts,
 
-	public var icon:String = null;
-	public var description:String = null;
+	?icon:String,
+	?description:String,
 
 	/**
 		Component processsing function
 	**/
-	public var process:ProcessingFunction = null;
+	?process:ProcessingFunction,
 
 	/**
 		Whether component should send
 		 		packets in same order it received them
 	**/
-	public var ordered:Null<Bool> = null;
+	?ordered:Null<Bool>,
 
-	public var autoOrdering:Null<Bool> = null;
+	?autoOrdering:Null<Bool>,
 
 	/**
 		Whether component should
 		  activate when it receives packets
 	**/
-	public var activateOnInput:Bool = true;
+	?activateOnInput:Bool,
 
 	/**
 		Mappings of forwarding ports
 	**/
-	public var forwardBrackets:DynamicAccess<Array<String>> = null;
+	?forwardBrackets:DynamicAccess<Array<String>>
 }
 
 class Component extends EventEmitter {

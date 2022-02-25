@@ -57,8 +57,8 @@ class AsComponent extends buddy.BuddySuite {
 						loader.load('ascomponent.sync-one').handle((cb) -> {
 							switch cb {
 								case Success(instance): {
-										Equal.equals(Reflect.fields(instance.inPorts.ports), ['hello']).should.be(true);
-										Equal.equals(Reflect.fields(instance.outPorts.ports), ['out', 'error']).should.be(true);
+										Equal.equals(instance.inPorts.ports.keys(), ['hello']).should.be(true);
+										Equal.equals(instance.outPorts.ports.keys(), ['out', 'error']).should.be(true);
 										done();
 									}
 								case Failure(err): {
@@ -205,7 +205,7 @@ class AsComponent extends buddy.BuddySuite {
 							loader.load('ascomponent.sync-two').handle(cb -> {
 								switch cb {
 									case Success(instance): {
-											Equal.equals(instance.inPorts.ports.keys(), ['greeting', 'name']).should.be(true);
+											Equal.equals(instance.inPorts.ports.keys(), ['name', 'greeting']).should.be(true);
 											Equal.equals(instance.outPorts.ports.keys(), ['out', 'error']).should.be(true);
 											done();
 										}
@@ -338,13 +338,14 @@ class AsComponent extends buddy.BuddySuite {
 						return 'Hello there';
 					}
 					it('should be possible to componentize', (done) -> {
-						final component = () -> asComponent(deflate(func), {});
+						final component = (meta) -> asComponent(deflate(func), {});
 						loader.registerComponent('ascomponent', 'sync-zero', component, (e) -> done());
 					});
 					it('should contain correct ports', (done) -> {
 						loader.load('ascomponent.sync-zero').handle(cb -> {
 							switch cb {
 								case Success(instance): {
+										
 										Equal.equals(instance.inPorts.ports.keys(), ['in']).should.be(true);
 										Equal.equals(instance.outPorts.ports.keys(), ['out', 'error']).should.be(true);
 										done();
@@ -369,7 +370,7 @@ class AsComponent extends buddy.BuddySuite {
 				});
 				describe('with a built-in function', () -> {
 					it('should be possible to componentize', (done) -> {
-						final component = () -> asComponent(deflate(Math.random), {});
+						final component = (meta) -> asComponent(deflate(Math.random), {});
 						loader.registerComponent('ascomponent', 'sync-zero', component, (e) -> done());
 					});
 					it('should contain correct ports', (done) -> {

@@ -1,3 +1,3 @@
-# @install: lix --silent download "gh://github.com/zenturi/ds#43553b94fa05f77ecd414c1f62e2f3a2b2601ccc" into polygonal-ds/2.1.1/github/43553b94fa05f77ecd414c1f62e2f3a2b2601ccc
--cp ${HAXE_LIBCACHE}/polygonal-ds/2.1.1/github/43553b94fa05f77ecd414c1f62e2f3a2b2601ccc/src
+# @install: lix --silent download "gh://github.com/zenturi/ds#4ac9c7c8455ec1627671155b66828177ca19df5b" into polygonal-ds/2.1.1/github/4ac9c7c8455ec1627671155b66828177ca19df5b
+-cp ${HAXE_LIBCACHE}/polygonal-ds/2.1.1/github/4ac9c7c8455ec1627671155b66828177ca19df5b/src
 -D polygonal-ds=2.1.1

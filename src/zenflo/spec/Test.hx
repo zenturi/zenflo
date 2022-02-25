@@ -11,5 +11,6 @@ class Test implements Buddy<[
     // zenflo.spec.lib.Outport,
     // zenflo.spec.lib.Ports,
     // zenflo.spec.lib.Component,
+    zenflo.spec.lib.AsCallback,
     zenflo.spec.lib.AsComponent,
 ]> {}

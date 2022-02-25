@@ -157,7 +157,7 @@ class ComponentLoader {
 		Creates an instance of a component.
 	**/
 	public function createComponent(name:String, component:Dynamic, metadata:GraphNodeMetadata):Promise<zenflo.lib.Component> {
-		final implementation:Dynamic = component;
+		final implementation:Any = component;
 		if (implementation == null) {
 			return Promise.reject(new Error('Component ${name} not available'));
 		}
@@ -191,7 +191,8 @@ class ComponentLoader {
 			// Attempt to create a component using a factory function.
 		} else if (Reflect.isFunction(implementation)) {
 			try {
-				instance = implementation(metadata);
+				final imp:ComponentFactory= cast implementation;
+				instance = imp(cast metadata);
 			} catch (error:Error) {
 				return Promise.reject(error);
 			}
@@ -206,16 +207,16 @@ class ComponentLoader {
 	**/
 	public function isGraph(cPath:Dynamic):Bool {
 		// Live graph instance
-		if (Std.isOfType(cPath, Graph)
-			|| (Std.isOfType(cPath.nodes, Array) && Std.isOfType(cPath.edges, Array) && Std.isOfType(cPath.initializers, Array))) {
+		if (cPath != null && Std.isOfType(cPath, Graph)
+			&& ((Std.isOfType(cPath.nodes, Array) && Std.isOfType(cPath.edges, Array) && Std.isOfType(cPath.initializers, Array)))) {
 			return true;
 		}
 
 		// Graph JSON definition
-		if ((Std.isOfType(cPath, Graph)) && cPath.processes && cPath.connections) {
+		if (cPath != null && (Std.isOfType(cPath, Graph)) && cPath.processes && cPath.connections) {
 			return true;
 		}
-		if (!Std.isOfType(cPath, String)) {
+		if (cPath != null && !Std.isOfType(cPath, String)) {
 			return false;
 		}
 		

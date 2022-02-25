@@ -9,7 +9,7 @@ import haxe.ds.List;
 @:arrayAccess
 abstract ZArray<T>(ArrayList<T>) from ArrayList<T> to ArrayList<T> {
     public function new() {
-        this = new ArrayList<T>(1024, [], false);
+        this = new ArrayList<T>();
         this.growthRate = GrowthRate.DOUBLE;
     }
 
