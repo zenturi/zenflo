@@ -28,3 +28,7 @@ npx run haxe test.hxml
 ```
 
 
+### Usage 
+
+See the [spec](src/zenflo/spec) for usage examples 
+

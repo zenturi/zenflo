@@ -5,8 +5,8 @@
     "tags": ["fbp", "flow-based-programming", "nocode", "lowcode", "haxe", "js", "nodejs", "python", "swf", "as3", "lua", "php7", "neko", "hl", "php", "java", "cpp", "cs"],
     "description": "Flow-based programming for Haxe",
     "classPath": "src",
-    "version": "0.0.1",
-    "releasenote": "Initial release",
+    "version": "0.0.2",
+    "releasenote": "separated some dependencies",
     "contributors": ["darmie"],
     "dependencies": {
         "fbp": "",
