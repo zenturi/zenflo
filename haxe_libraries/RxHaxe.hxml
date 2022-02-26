@@ -1,3 +1,3 @@
-# @install: lix --silent download "gh://github.com/longde123/RxHaxe#ff2ba66867914913396818ff6169d90966e7ddce" into RxHaxe/0.0.0/github/ff2ba66867914913396818ff6169d90966e7ddce
--cp ${HAXE_LIBCACHE}/RxHaxe/0.0.0/github/ff2ba66867914913396818ff6169d90966e7ddce/
--D RxHaxe=0.0.0
+# @install: lix --silent download "gh://github.com/darmie/rxhaxe#1296766cf0ba020c1c4f020f016deda9c5c903c6" into rxhaxe/0.0.0/github/1296766cf0ba020c1c4f020f016deda9c5c903c6
+-cp ${HAXE_LIBCACHE}/rxhaxe/0.0.0/github/1296766cf0ba020c1c4f020f016deda9c5c903c6/
+-D rxhaxe=0.0.0

@@ -1,7 +1,7 @@
 editor.hxml
 
 
--m zenflo.spec.Test
+-m zenflo.spec.TestZenflo
 -D HXCPP_M64
 -D no-debug
 -D buddy-colors

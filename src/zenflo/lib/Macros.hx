@@ -116,7 +116,7 @@ function asComponent(paramsAndRet:Array<Dynamic>, ?options:ComponentOptions) {
 	return c;
 }
 
-typedef AsCallbackComponent = Either<Graph, String>;
+typedef AsCallbackComponent = Either<Graph, Any>;
 
 typedef AsCallbackOptions = {
 	// Name for the wrapped network
@@ -136,7 +136,7 @@ typedef AsCallbackOptions = {
 };
 
 typedef OutputMap = Array<Any>;
-typedef InputMap = Either<DynamicAccess<Array<IP>>, Array<DynamicAccess<IP>>>;
+typedef InputMap = Either<DynamicAccess<Array<Any>>, Array<DynamicAccess<Any>>>;
 typedef ResultCallback = (err:Null<Error>, output:Dynamic) -> Void;
 typedef NetworkAsCallback = (inputs:Dynamic, callback:ResultCallback) -> Void;
 typedef NetworkAsPromise = (inputs:Dynamic) -> tink.core.Promise<Any>;
@@ -203,6 +203,7 @@ function normalizeOptions(options:AsCallbackOptions, component:AsCallbackCompone
  * @return Promise<Network>
  */
 function prepareNetwork(component:Dynamic, options:AsCallbackOptions):Promise<Network> {
+	
 	// If we were given a graph instance, then just create a network
 	if (Std.isOfType(component, Graph)) {
 		// This is a graph object
@@ -480,7 +481,7 @@ function prepareInputMap(inputs:Dynamic, inputType:String, network:Network):Inpu
 		inPort = 'in';
 	}
 
-	final map:DynamicAccess<IP> = {};
+	final map:DynamicAccess<Any> = {};
 	map[inPort] = inputs;
 	return InputMap.Right([map]);
 }
@@ -608,13 +609,13 @@ function asPromise(component:Dynamic, options:AsCallbackOptions):NetworkAsPromis
 		throw new Error('No component or graph provided');
 	}
 
-	if (Std.isOfType(component, String)) {
+	if (!Std.isOfType(component, Graph)) {
 		options = normalizeOptions(options, AsCallbackComponent.Right(component));
-	}
-
-	if (Std.isOfType(component, Graph)) {
+	} else {
 		options = normalizeOptions(options, AsCallbackComponent.Left(component));
 	}
+
+	
 
 	return (inputs) -> new Promise<Any>((resolve, reject) -> {
 		prepareNetwork(component, options).handle((cb) -> {

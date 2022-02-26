@@ -2,9 +2,7 @@ package zenflo.spec;
 
 import buddy.Buddy;
 
-class Test implements Buddy<[
-    // zenflo.spec.graph.Graph,
-    // zenflo.spec.graph.Journal,
+class TestZenflo implements Buddy<[
     // zenflo.spec.lib.IP,
     // zenflo.spec.lib.ComponentExample,
     // zenflo.spec.lib.Inport,

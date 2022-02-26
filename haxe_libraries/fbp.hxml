@@ -1,0 +1,7 @@
+# @install: lix --silent download "haxelib:/fbp#0.0.3" into fbp/0.0.3/haxelib
+-lib hscript
+-lib hxparse
+-lib zenflo-emitter
+-lib zenflo-graph
+-cp ${HAXE_LIBCACHE}/fbp/0.0.3/haxelib/src
+-D fbp=0.0.3

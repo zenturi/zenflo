@@ -8,7 +8,7 @@
 
 -D js-es=6
 -L hx3compat
--L RxHaxe
+-L rxhaxe
 -L tink_core
 -L polygonal-ds
 # -L tink_macro
@@ -21,4 +21,4 @@
 -L buddy
 
 -L hscript
-# -L fbp
+-L fbp

@@ -80,7 +80,6 @@ class ManifestLoader {
 
 	function register(loader:ComponentLoader, callback:(err:tink.core.Error, modules:Array<Dynamic>) -> Void) {
 		final manifestOptions = prepareManifestOptions(loader);
-		
 		if (loader.options != null ? loader.options.cache != null : false) {
 			this.listComponents(loader, manifestOptions, (err, modules) -> {
 				if (err != null) {
@@ -92,6 +91,7 @@ class ManifestLoader {
 			});
 		}
 
+		
 		list(loader, manifestOptions, (err, modules) -> {
 			if (err != null) {
 				callback(err, []);
@@ -253,6 +253,10 @@ class ManifestLoader {
 
 	function registerModules(loader:ComponentLoader, modules:Array<ManifestModule>, callback:(err:Error) -> Void):Void {
 		final componentLoaders = [];
+		if(modules.length == 0) {
+			callback(null);
+			return;
+		}
 		Promise.inParallel(modules.map((m) -> {
 			if (m.icon != null) {
 				loader.setLibraryIcon(m.name, m.icon);
