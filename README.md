@@ -29,7 +29,9 @@ npx run haxe test.hxml
 
 
 ### Usage 
+Read the [NoFlo Documentation](https://noflojs.org/documentation/components/) on how components are loaded. 
 
+To convert an Haxe function into a ZenFlo component:
 ```hx
 import zenflo.lib.loader.ManifestLoader;
 import zenflo.lib.Macros.asComponent;
@@ -57,5 +59,5 @@ loader.load('math.random').handle(cb -> {
 });
 ```
 
-See the [spec](src/zenflo/spec) for more usage examples 
+See the [Component Spec](src/zenflo/spec/lib/Component.hx) for more examples of how components send data to eachother.
 
