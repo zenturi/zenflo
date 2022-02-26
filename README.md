@@ -16,7 +16,7 @@ ZenFlo is a way to coordinate and reorganize data flow in any application. If yo
  * [hxjava](https://lib.haxe.org/p/hxjava)
  * [hxcpp](https://lib.haxe.org/p/hxcpp)
  * [hxcs](https://lib.haxe.org/p/hxcs)
-
+ * [tink_core](https://github.com/haxetink/tink_core)
  * [ds](https://github.com/zenturi/ds)
 
 This project uses [lix.pm](https://github.com/lix-pm/lix.client) as Haxe package manager.
@@ -30,5 +30,32 @@ npx run haxe test.hxml
 
 ### Usage 
 
-See the [spec](src/zenflo/spec) for usage examples 
+```hx
+import zenflo.lib.loader.ManifestLoader;
+import zenflo.lib.Macros.asComponent;
+import zenflo.lib.Macros.asCallback;
+import zenflo.lib.Utils.deflate;
+
+ManifestLoader.init();
+final loader = new ComponentLoader(Sys.getCwd()));
+final component = (_) -> asComponent(deflate(Math.random), {});
+loader.registerComponent('math', 'random', component, (e) -> done());
+
+loader.load('math.random').handle(cb -> {
+    switch cb {
+        case Success(_): {
+            final wrapped = asCallback('math.random', {loader: loader});
+            wrapped('bang', (err, res) -> {
+                if (err != null) return;
+                trace(Std.isOfType(res, Float)); // True
+            });
+        }
+        case Failure(err):{
+            // throw error
+        }
+    }
+});
+```
+
+See the [spec](src/zenflo/spec) for more usage examples 
 
